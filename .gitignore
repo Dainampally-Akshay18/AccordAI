@@ -1,0 +1,84 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pdb
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.manifest
+*.spec
+*.log
+*.sqlite3
+*.db
+.env
+.env.*
+.venv/
+venv/
+ENV/
+env/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.cache/
+.pyre/
+*.pot
+*.mo
+*.swp
+*.bak
+*.tmp
+
+# FastAPI/uvicorn
+*.pid
+
+# VSCode
+.vscode/
+
+# Node.js / React / Vite
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+*.tar
+
+# Misc
+*.zip
+*.7z
+*.rar
+*.gz
+*.tgz
+*.bak
+*.tmp
+
+# Test output
+junit.xml
+coverage.xml
+
+# IDE
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Others
+backend/__pycache__/
+backend/app/__pycache__/
+backend/app/database/migrations/
+
+# Ignore plan and scripts output
+plan/*.log
+scripts/*.log

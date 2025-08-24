@@ -1,0 +1,19 @@
+# Minimal working requirements.txt
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+pydantic-settings
+sqlalchemy
+asyncpg
+alembic
+firebase-admin
+langchain
+groq
+pinecone-client
+python-dotenv
+aiofiles
+httpx
+PyMuPDF
+python-docx
+Pillow
