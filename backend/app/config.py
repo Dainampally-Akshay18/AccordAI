@@ -2,6 +2,7 @@ import os
 from typing import Optional
 from pydantic_settings import BaseSettings
 from pydantic import Field
+from urllib.parse import quote_plus
 
 class Settings(BaseSettings):
     # API Configuration
@@ -13,8 +14,30 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
     DEBUG: bool = Field(default=True, env="DEBUG")
     
-    # Database
-    DATABASE_URL: str = Field(..., env="DATABASE_URL")
+    # Database Components
+    DB_USER: str = Field(default="postgres", env="DB_USER")
+    DB_PASSWORD: str = Field(..., env="DB_PASSWORD")
+    DB_HOST: str = Field(..., env="DB_HOST")
+    DB_PORT: int = Field(default=5432, env="DB_PORT")
+    DB_NAME: str = Field(default="postgres", env="DB_NAME")
+    
+    # Allow DATABASE_URL but don't use it directly
+    DATABASE_URL_RAW: Optional[str] = Field(default=None, env="DATABASE_URL")
+    
+    @property
+    def DATABASE_URL(self) -> str:
+        """Construct database URL with properly encoded credentials"""
+        # If we have all components, build the URL
+        if all([self.DB_USER, self.DB_PASSWORD, self.DB_HOST, self.DB_PORT, self.DB_NAME]):
+            # Properly encode the password
+            encoded_password = quote_plus(self.DB_PASSWORD)
+            # Correct format: postgresql+asyncpg://user:password@host:port/database
+            return f"postgresql+asyncpg://{self.DB_USER}:{encoded_password}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        # Fall back to raw URL if components aren't available
+        elif self.DATABASE_URL_RAW:
+            return self.DATABASE_URL_RAW
+        else:
+            raise ValueError("Database configuration is incomplete")
     
     # Firebase
     # FIREBASE_CREDENTIALS_PATH: Optional[str] = Field(default=None, env="FIREBASE_CREDENTIALS_PATH")
@@ -47,5 +70,6 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "allow"  # Changed to "allow" to accept extra fields
 
 settings = Settings()

@@ -2,17 +2,13 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from app.api.auth import authRoutes
 import uvicorn
 import time
 import logging
 
 from app.config import settings
-# from app.api.auth import router as auth_router
-# from app.api.documents import router as documents_router
-# from app.api.analysis import router as analysis_router
-# from app.api.negotiation import router as negotiation_router
-# from app.api.walkthrough import router as walkthrough_router
-# from app.database.connection import init_db
+from app.database.connection import init_db
 
 # Configure logging
 logging.basicConfig(
@@ -31,6 +27,7 @@ app = FastAPI(
     redoc_url="/redoc" if settings.DEBUG else None,
 )
 
+app.include_router(authRoutes, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 # Middleware
 app.add_middleware(
     CORSMiddleware,
@@ -74,19 +71,13 @@ async def health_check():
         "timestamp": time.time()
     }
 
-# API Routes
-# app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["Authentication"])
-# app.include_router(documents_router, prefix=f"{settings.API_V1_STR}/documents", tags=["Documents"])
-# app.include_router(analysis_router, prefix=f"{settings.API_V1_STR}/analysis", tags=["Analysis"])
-# app.include_router(negotiation_router, prefix=f"{settings.API_V1_STR}/negotiation", tags=["Negotiation"])
-# app.include_router(walkthrough_router, prefix=f"{settings.API_V1_STR}/walkthrough", tags=["Walkthrough"])
 
 # Startup event
 @app.on_event("startup")
 async def startup_event():
     logger.info("Starting Legal AI Platform...")
     try:
-        # await init_db()
+        await init_db()
         logger.info("Database initialized successfully")
     except Exception as e:
         logger.error(f"Database initialization failed: {str(e)}")
