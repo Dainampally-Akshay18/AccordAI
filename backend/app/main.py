@@ -2,11 +2,14 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from app.api.analysis import router as analysis_router
+
+from app.api.documents import router as doc_router
 from app.api.auth import authRoutes
 import uvicorn
 import time
 import logging
-
+from app.api.documents import doc_router  
 from app.config import settings
 from app.database.connection import init_db
 
@@ -28,6 +31,9 @@ app = FastAPI(
 )
 
 app.include_router(authRoutes, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
+app.include_router(analysis_router, prefix=f"{settings.API_V1_STR}/analysis", tags=["analysis"])
+app.include_router(doc_router, prefix=f"{settings.API_V1_STR}/documents", tags=["documents"])
+
 # Middleware
 app.add_middleware(
     CORSMiddleware,
@@ -77,7 +83,7 @@ async def health_check():
 async def startup_event():
     logger.info("Starting Legal AI Platform...")
     try:
-        await init_db()
+        # await init_db()
         logger.info("Database initialized successfully")
     except Exception as e:
         logger.error(f"Database initialization failed: {str(e)}")
@@ -92,11 +98,3 @@ async def root():
         "docs": "/docs" if settings.DEBUG else "Documentation not available in production"
     }
 
-if __name__ == "__main__":
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=settings.DEBUG,
-        log_level="info"
-    )
