@@ -1,21 +1,29 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-
 import Home from './components/Home';
 import About from './pages/About';
 import RagAnalysis from './pages/RagAnalysis';
 import Navbar from './components/Navbar';
 
-
 function App() {
   return (
     <Router>
-      <Navbar/>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <div className="App">
+        {/* Global Navbar (if you want it on all pages) */}
+        <Navbar />
+        
         <Routes>
+          {/* Home Route */}
           <Route path="/" element={<Home />} />
-          <Route path="/about-us" element={<About />} />
-          <Route path="/analysis" element={<RagAnalysis />} />
+          
+          {/* About Route */}
+          <Route path="/about" element={<About />} />
+          
+          {/* ✅ CRITICAL: Analysis Route with Wildcard for Nested Routes */}
+          <Route path="/analysis/*" element={<RagAnalysis />} />
+          
+          {/* Fallback Route */}
+          <Route path="*" element={<Home />} />
         </Routes>
       </div>
     </Router>

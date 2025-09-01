@@ -1,4 +1,4 @@
-# analysis.py - Complete Enterprise-Grade Fix
+# analysis.py - Modular Endpoints for Each Analysis Type
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from app.services.vector_service import vector_service
@@ -12,392 +12,319 @@ import re
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-class RAGAnalysisRequest(BaseModel):
+class AnalysisRequest(BaseModel):
     document_id: str
-    analysis_type: str = "risk_analysis"
     jurisdiction: str = "US"
 
-class RAGAnalysisResponse(BaseModel):
+class AnalysisResponse(BaseModel):
     analysis: dict
     relevant_chunks: list
     status: str
     timestamp: str
     session_id: str
 
-# ✅ COMPLETELY REWRITTEN: Distinct, Structured Prompts for Each Analysis Type
-RAG_ANALYSIS_PROMPTS = {
-    "risk_analysis": """
-You are a senior legal analyst. Analyze the provided contract sections and identify ALL legal risks.
+# ✅ SPECIALIZED PROMPTS FOR EACH ENDPOINT
+RISK_ANALYSIS_PROMPT = """
+You are a senior legal risk analyst. Analyze the contract sections and identify ALL legal risks.
 
 CONTRACT SECTIONS:
 {relevant_text}
 
-ANALYSIS REQUIREMENTS:
+REQUIREMENTS:
 - Find ALL risks (not just top 3)
-- Categorize each risk by severity: High, Medium, Low
-- Provide specific recommendations for each risk
+- Categorize by severity: High, Medium, Low
+- Provide specific recommendations
 - Consider jurisdiction: {jurisdiction}
 
-RESPOND ONLY WITH VALID JSON:
+RESPOND WITH VALID JSON:
 {{
     "risks": [
         {{
             "title": "Risk title",
-            "severity": "High",
-            "emoji": "🔴",
-            "description": "Clear explanation of the risk",
-            "clause_reference": "Reference to specific clause",
-            "recommendation": "Specific action to mitigate risk",
-            "impact": "Potential consequences if not addressed"
-        }},
-        {{
-            "title": "Another risk",
-            "severity": "Medium", 
-            "emoji": "🟡",
-            "description": "Another risk explanation",
-            "clause_reference": "Another clause reference",
-            "recommendation": "Another recommendation",
-            "impact": "Another impact description"
+            "severity": "High|Medium|Low",
+            "emoji": "🔴|🟡|🟢",
+            "description": "Clear risk explanation",
+            "clause_reference": "Specific clause reference",
+            "recommendation": "Mitigation action",
+            "impact": "Potential consequences",
+            "probability": "High|Medium|Low"
         }}
     ],
-    "overall_risk_score": 7,
-    "summary": "Overall assessment of contract risks",
-    "total_risks_found": 5,
-    "high_risks": 2,
-    "medium_risks": 2,
-    "low_risks": 1
-}}""",
-
-    "negotiation": """
-You are a senior contract negotiation expert. Create a comprehensive negotiation strategy.
-
-CONTRACT SECTIONS:
-{relevant_text}
-
-NEGOTIATION REQUIREMENTS:
-- Identify key negotiation points
-- Suggest alternative clauses
-- Generate TWO email templates: one for ACCEPTANCE and one for REJECTION
-- Consider jurisdiction: {jurisdiction}
-
-RESPOND ONLY WITH VALID JSON:
-{{
-    "key_negotiation_points": [
-        {{
-            "point": "Payment terms",
-            "current_issue": "Net 60 days is too long",
-            "suggested_change": "Negotiate to Net 30 days",
-            "priority": "High"
-        }}
-    ],
-    "alternative_clauses": [
-        {{
-            "clause_type": "Payment Terms",
-            "original": "Payment due in 60 days",
-            "suggested": "Payment due in 30 days with 2% early payment discount"
-        }}
-    ],
-    "emails": {{
-        "acceptance": "Subject: Contract Acceptance - [Contract Name]\\n\\nDear [Counterparty],\\n\\nThank you for providing the contract. After careful review, we are pleased to accept the terms as proposed...\\n\\nBest regards,\\n[Your Name]",
-        "rejection": "Subject: Contract Review - Proposed Modifications\\n\\nDear [Counterparty],\\n\\nThank you for the contract proposal. After thorough review, we have identified several areas requiring modification before we can proceed...\\n\\nWe look forward to your response.\\n\\nBest regards,\\n[Your Name]"
+    "risk_metrics": {{
+        "total_risks": 5,
+        "high_risk_count": 2,
+        "medium_risk_count": 2,
+        "low_risk_count": 1,
+        "overall_risk_score": 7.5,
+        "risk_categories": ["Payment", "Liability", "Termination"]
     }},
-    "negotiation_strategy": "Overall strategy for approaching negotiations",
-    "priority_issues": ["Issue 1", "Issue 2", "Issue 3"]
-}}""",
+    "summary": "Executive risk assessment"
+}}"""
 
-    "summary": """
-You are a senior legal document analyst. Create a comprehensive document summary.
+NEGOTIATION_PROMPT = """
+You are a professional contract negotiation expert. Generate email templates for contract responses.
 
 CONTRACT SECTIONS:
 {relevant_text}
 
-SUMMARY REQUIREMENTS:
-- Extract key terms and obligations
-- Identify important dates and deadlines
-- Summarize financial terms
-- Highlight critical clauses
+REQUIREMENTS:
+- Create professional acceptance and rejection emails
+- Include proper business formatting
 - Consider jurisdiction: {jurisdiction}
 
-RESPOND ONLY WITH VALID JSON:
+RESPOND WITH VALID JSON:
 {{
-    "document_overview": {{
-        "contract_type": "Type of contract",
-        "parties": ["Party 1", "Party 2"],
-        "effective_date": "Contract start date",
-        "expiration_date": "Contract end date",
-        "jurisdiction": "{jurisdiction}"
+    "emails": {{
+        "acceptance": "Subject: Contract Acceptance\\n\\nDear [Counterparty],\\n\\nThank you for the contract. After careful review, we accept the terms as presented.\\n\\nBest regards,\\n[Your Name]",
+        "rejection": "Subject: Contract Modifications Required\\n\\nDear [Counterparty],\\n\\nWe've reviewed the contract and need modifications before proceeding.\\n\\nBest regards,\\n[Your Name]"
+    }},
+    "key_points": [
+        {{
+            "issue": "Payment terms",
+            "concern": "Net 60 days too long", 
+            "suggestion": "Net 30 days preferred"
+        }}
+    ]
+}}"""
+
+SUMMARY_PROMPT = """
+You are a legal document analyst. Create a comprehensive contract summary.
+
+CONTRACT SECTIONS:
+{relevant_text}
+
+REQUIREMENTS:
+- Extract key terms and obligations
+- Identify important dates
+- Summarize financial terms
+- Consider jurisdiction: {jurisdiction}
+
+RESPOND WITH VALID JSON:
+{{
+    "overview": {{
+        "contract_type": "Service Agreement",
+        "parties": ["Company A", "Company B"],
+        "effective_date": "2025-01-01",
+        "term": "12 months"
     }},
     "key_terms": [
         {{
-            "term": "Service delivery",
-            "description": "Description of what services will be provided"
-        }}
-    ],
-    "important_dates": [
-        {{
-            "date": "2025-01-15",
-            "description": "Project milestone deadline",
-            "importance": "High"
+            "term": "Payment Schedule",
+            "description": "Monthly payments due on 1st"
         }}
     ],
     "financial_terms": {{
-        "total_value": "Contract total value",
-        "payment_schedule": "How payments are structured",
-        "penalties": "Late payment or breach penalties",
+        "total_value": "$100,000",
+        "payment_frequency": "Monthly",
         "currency": "USD"
     }},
+    "important_dates": [
+        {{
+            "date": "2025-01-15",
+            "event": "Project kickoff",
+            "importance": "High"
+        }}
+    ],
     "obligations": {{
-        "party_a": ["Obligation 1", "Obligation 2"],
-        "party_b": ["Obligation 1", "Obligation 2"]
+        "party_a": ["Deliver services", "Maintain quality"],
+        "party_b": ["Make payments", "Provide access"]
     }},
-    "termination_clauses": [
-        "How contract can be terminated"
-    ],
-    "risk_factors": [
-        "Key risk factor 1",
-        "Key risk factor 2"
-    ],
-    "summary": "Overall summary of the contract in 2-3 sentences"
+    "summary": "Contract overview in 2-3 sentences"
 }}"""
-}
 
-@router.post("/rag_analysis", response_model=RAGAnalysisResponse)
-async def rag_analysis(
-    request: RAGAnalysisRequest,
+# ✅ ENDPOINT 1: Risk Analysis
+@router.post("/risk-analysis", response_model=AnalysisResponse)
+async def analyze_risks(
+    request: AnalysisRequest,
     current_session: dict = Depends(get_current_session)
 ):
-    """
-    Enhanced RAG analysis with structured JSON responses for each analysis type
-    """
+    """Dedicated endpoint for legal risk analysis with metrics"""
     try:
         session_id = current_session["session_id"]
         session_document_id = f"{session_id}_{request.document_id}"
         
-        logger.info(f"🎯 RAG ANALYSIS REQUEST:")
-        logger.info(f"   Session ID: {session_id}")
-        logger.info(f"   Document ID: {request.document_id}")
-        logger.info(f"   Analysis Type: {request.analysis_type}")
+        logger.info(f"🎯 RISK ANALYSIS REQUEST for document: {request.document_id}")
         
-        # Step 1: Verify document exists
-        doc_info = await vector_service.get_document_info(session_document_id)
-        if not doc_info.get("exists", False):
-            logger.error(f"❌ Document not found: {session_document_id}")
-            raise HTTPException(
-                status_code=404,
-                detail=f"Document not found. Please upload the document first."
-            )
-        
-        # Step 2: Retrieve relevant chunks with enhanced query
-        query_map = {
-            "risk_analysis": "legal risks liability penalties indemnification breach termination warranties obligations",
-            "negotiation": "payment terms conditions obligations termination renewal liability negotiation clauses",
-            "summary": "key terms parties obligations payments duration financial terms deadlines"
-        }
-        
-        query = query_map.get(request.analysis_type, "contract terms conditions")
-        logger.info(f"   Search Query: '{query}'")
-        
+        # Retrieve risk-focused chunks
         relevant_chunks = await vector_service.retrieve_relevant_chunks(
-            query=query,
+            query="legal risks liability penalties indemnification breach termination warranties",
             document_id=session_document_id,
-            top_k=20  # ✅ INCREASED: Get more chunks for comprehensive analysis
+            top_k=20
         )
         
         if not relevant_chunks:
-            logger.error(f"❌ No relevant chunks found")
-            raise HTTPException(
-                status_code=404,
-                detail=f"No relevant content found for {request.analysis_type} analysis."
-            )
+            raise HTTPException(status_code=404, detail="No relevant content found for risk analysis")
         
-        logger.info(f"📊 Retrieved {len(relevant_chunks)} chunks")
-        
-        # Step 3: Combine relevant chunks with better formatting
+        # Format content
         relevant_text = "\n\n".join([
             f"SECTION {chunk['chunk_index'] + 1}:\n{chunk['text']}"
             for chunk in relevant_chunks
         ])
         
-        # Step 4: Get the specific prompt template
-        prompt_template = RAG_ANALYSIS_PROMPTS.get(request.analysis_type)
-        if not prompt_template:
-            logger.error(f"❌ Invalid analysis type: {request.analysis_type}")
-            raise HTTPException(status_code=400, detail="Invalid analysis type")
-        
-        # Step 5: Format the prompt
-        prompt = prompt_template.format(
+        # Generate analysis
+        prompt = RISK_ANALYSIS_PROMPT.format(
             relevant_text=relevant_text,
             jurisdiction=request.jurisdiction
         )
         
-        logger.info(f"🤖 Calling LLM for {request.analysis_type} analysis")
+        llm_response = await llm_service.call_groq(prompt)
+        parsed_analysis = await _parse_response(llm_response, "risk")
         
-        # Step 6: Call LLM with enhanced error handling
-        try:
-            llm_response = await llm_service.call_groq(prompt)
-        except Exception as llm_error:
-            logger.error(f"❌ LLM service failed: {str(llm_error)}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"AI analysis service failed: {str(llm_error)}"
-            )
-        
-        # Step 7: Parse and validate JSON response
-        parsed_analysis = await _parse_and_validate_response(llm_response, request.analysis_type)
-        
-        logger.info(f"✅ Analysis completed successfully for {request.analysis_type}")
-        
-        # Step 8: Return structured response
-        return RAGAnalysisResponse(
+        return AnalysisResponse(
             analysis=parsed_analysis,
-            relevant_chunks=[{
-                "chunk_index": chunk["chunk_index"],
-                "text": chunk["text"][:300] + "..." if len(chunk["text"]) > 300 else chunk["text"],
-                "relevance_score": chunk["score"]
-            } for chunk in relevant_chunks],
+            relevant_chunks=_format_chunks(relevant_chunks),
             status="success",
             timestamp=datetime.now().isoformat(),
             session_id=session_id
         )
         
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"❌ RAG analysis failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        logger.error(f"❌ Risk analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Risk analysis failed: {str(e)}")
 
-async def _parse_and_validate_response(llm_response: dict, analysis_type: str) -> dict:
-    """
-    Parse and validate LLM response to ensure it's properly structured JSON
-    """
+# ✅ ENDPOINT 2: Negotiation Assistant  
+@router.post("/negotiation-assistant", response_model=AnalysisResponse)
+async def negotiation_assistant(
+    request: AnalysisRequest,
+    current_session: dict = Depends(get_current_session)
+):
+    """Dedicated endpoint for contract negotiation assistance"""
     try:
-        # Handle different response formats
-        if isinstance(llm_response, dict):
-            if "result" in llm_response:
-                content = llm_response["result"]
-            elif "analysis" in llm_response:
-                content = llm_response["analysis"]
-            else:
-                content = llm_response
-        elif isinstance(llm_response, str):
-            content = llm_response
-        else:
-            content = str(llm_response)
+        session_id = current_session["session_id"]
+        session_document_id = f"{session_id}_{request.document_id}"
         
-        # Extract JSON from string if needed
+        logger.info(f"🤝 NEGOTIATION ASSISTANT REQUEST for document: {request.document_id}")
+        
+        # Retrieve negotiation-focused chunks
+        relevant_chunks = await vector_service.retrieve_relevant_chunks(
+            query="payment terms conditions obligations termination renewal liability negotiation",
+            document_id=session_document_id,
+            top_k=15
+        )
+        
+        if not relevant_chunks:
+            raise HTTPException(status_code=404, detail="No relevant content found for negotiation")
+        
+        # Format content
+        relevant_text = "\n\n".join([
+            f"SECTION {chunk['chunk_index'] + 1}:\n{chunk['text']}"
+            for chunk in relevant_chunks
+        ])
+        
+        # Generate negotiation assistance
+        prompt = NEGOTIATION_PROMPT.format(
+            relevant_text=relevant_text,
+            jurisdiction=request.jurisdiction
+        )
+        
+        llm_response = await llm_service.call_groq(prompt)
+        parsed_analysis = await _parse_response(llm_response, "negotiation")
+        
+        return AnalysisResponse(
+            analysis=parsed_analysis,
+            relevant_chunks=_format_chunks(relevant_chunks),
+            status="success",
+            timestamp=datetime.now().isoformat(),
+            session_id=session_id
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Negotiation assistant failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Negotiation assistance failed: {str(e)}")
+
+# ✅ ENDPOINT 3: Document Summary
+@router.post("/document-summary", response_model=AnalysisResponse)
+async def document_summary(
+    request: AnalysisRequest,
+    current_session: dict = Depends(get_current_session)
+):
+    """Dedicated endpoint for document summarization"""
+    try:
+        session_id = current_session["session_id"]
+        session_document_id = f"{session_id}_{request.document_id}"
+        
+        logger.info(f"📄 DOCUMENT SUMMARY REQUEST for document: {request.document_id}")
+        
+        # Retrieve summary-focused chunks
+        relevant_chunks = await vector_service.retrieve_relevant_chunks(
+            query="key terms parties obligations payments duration financial terms deadlines",
+            document_id=session_document_id,
+            top_k=18
+        )
+        
+        if not relevant_chunks:
+            raise HTTPException(status_code=404, detail="No relevant content found for summary")
+        
+        # Format content
+        relevant_text = "\n\n".join([
+            f"SECTION {chunk['chunk_index'] + 1}:\n{chunk['text']}"
+            for chunk in relevant_chunks
+        ])
+        
+        # Generate summary
+        prompt = SUMMARY_PROMPT.format(
+            relevant_text=relevant_text,
+            jurisdiction=request.jurisdiction
+        )
+        
+        llm_response = await llm_service.call_groq(prompt)
+        parsed_analysis = await _parse_response(llm_response, "summary")
+        
+        return AnalysisResponse(
+            analysis=parsed_analysis,
+            relevant_chunks=_format_chunks(relevant_chunks),
+            status="success",
+            timestamp=datetime.now().isoformat(),
+            session_id=session_id
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Document summary failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Document summary failed: {str(e)}")
+
+# Helper functions
+async def _parse_response(llm_response: dict, analysis_type: str) -> dict:
+    """Parse LLM response to structured JSON"""
+    try:
+        content = llm_response.get("result", llm_response) if isinstance(llm_response, dict) else str(llm_response)
+        
         if isinstance(content, str):
-            # Try to find JSON within the response
             json_match = re.search(r'\{.*\}', content, re.DOTALL)
             if json_match:
-                json_str = json_match.group()
-            else:
-                json_str = content
-            
-            try:
-                parsed_json = json.loads(json_str)
-            except json.JSONDecodeError:
-                # If JSON parsing fails, create structured response
-                logger.warning("⚠️ Failed to parse JSON, creating structured response")
-                parsed_json = _create_fallback_response(content, analysis_type)
-        else:
-            parsed_json = content
+                return json.loads(json_match.group())
         
-        # Validate required fields based on analysis type
-        validated_response = _validate_analysis_structure(parsed_json, analysis_type)
-        
-        return validated_response
+        return content if isinstance(content, dict) else {"error": "Invalid response format"}
         
     except Exception as e:
-        logger.error(f"❌ Response parsing failed: {str(e)}")
+        logger.error(f"Response parsing failed: {str(e)}")
         return _create_fallback_response(str(llm_response), analysis_type)
 
-def _validate_analysis_structure(data: dict, analysis_type: str) -> dict:
-    """
-    Validate that the response has the expected structure for each analysis type
-    """
-    if analysis_type == "risk_analysis":
-        if "risks" not in data:
-            data["risks"] = []
-        if "overall_risk_score" not in data:
-            data["overall_risk_score"] = 5
-        if "summary" not in data:
-            data["summary"] = "Risk analysis completed"
-            
-    elif analysis_type == "negotiation":
-        if "key_negotiation_points" not in data:
-            data["key_negotiation_points"] = []
-        if "emails" not in data:
-            data["emails"] = {
-                "acceptance": "Acceptance email template would be generated here.",
-                "rejection": "Rejection email template would be generated here."
-            }
-        if "alternative_clauses" not in data:
-            data["alternative_clauses"] = []
-            
-    elif analysis_type == "summary":
-        if "document_overview" not in data:
-            data["document_overview"] = {}
-        if "key_terms" not in data:
-            data["key_terms"] = []
-        if "financial_terms" not in data:
-            data["financial_terms"] = {}
-    
-    return data
-
 def _create_fallback_response(content: str, analysis_type: str) -> dict:
-    """
-    Create a fallback structured response when JSON parsing fails
-    """
-    if analysis_type == "risk_analysis":
-        return {
-            "risks": [{
-                "title": "Analysis Result",
-                "severity": "Medium",
-                "emoji": "⚠️",
-                "description": content[:500],
-                "clause_reference": "See document sections",
-                "recommendation": "Please review the analysis details"
-            }],
-            "overall_risk_score": 5,
-            "summary": "Risk analysis completed with text response"
-        }
-    elif analysis_type == "negotiation":
-        return {
-            "key_negotiation_points": [{"point": "Review required", "priority": "High"}],
+    """Create fallback response structure"""
+    fallbacks = {
+        "risk": {
+            "risks": [{"title": "Analysis Available", "severity": "Medium", "description": content[:200]}],
+            "risk_metrics": {"total_risks": 1, "overall_risk_score": 5}
+        },
+        "negotiation": {
             "emails": {
-                "acceptance": "Subject: Contract Acceptance\n\n" + content[:200],
-                "rejection": "Subject: Contract Modifications Required\n\n" + content[:200]
-            },
-            "negotiation_strategy": content[:300]
-        }
-    else:  # summary
-        return {
-            "document_overview": {"contract_type": "Document Summary"},
-            "key_terms": [{"term": "Summary", "description": content[:300]}],
+                "acceptance": f"Contract acceptance email based on: {content[:100]}",
+                "rejection": f"Contract modification request based on: {content[:100]}"
+            }
+        },
+        "summary": {
+            "overview": {"contract_type": "Document Analysis"},
             "summary": content[:200]
         }
+    }
+    return fallbacks.get(analysis_type, {"result": content})
 
-# Health check endpoint
-@router.get("/health")
-async def health_check():
-    """Health check endpoint for RAG analysis service"""
-    try:
-        llm_health = await llm_service.health_check_groq()
-        vector_health = await vector_service.health_check()
-        
-        return {
-            "status": "healthy",
-            "timestamp": datetime.now().isoformat(),
-            "services": {
-                "llm_service": llm_health,
-                "vector_service": vector_health
-            }
-        }
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "error": str(e),
-            "timestamp": datetime.now().isoformat()
-        }
+def _format_chunks(chunks):
+    """Format chunks for response"""
+    return [{
+        "chunk_index": chunk["chunk_index"],
+        "text": chunk["text"][:300] + "..." if len(chunk["text"]) > 300 else chunk["text"],
+        "relevance_score": chunk["score"]
+    } for chunk in chunks]
 
 analysis_router = router
