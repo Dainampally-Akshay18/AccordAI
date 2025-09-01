@@ -1,184 +1,162 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+# auth.py
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
-from passlib.context import CryptContext
-from datetime import datetime, timedelta
-from typing import Optional
+from pydantic import BaseModel
 import jwt
-from pydantic import BaseModel, EmailStr
-
-from app.database.connection import get_db
-from app.models.user import User
+from datetime import datetime, timedelta, timezone
+import uuid
+import logging
 from app.config import settings
 
-authRoutes = APIRouter()
+router = APIRouter()
+logger = logging.getLogger(__name__)
 security = HTTPBearer()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Pydantic models
-class UserSignup(BaseModel):
-    email: EmailStr
-    password: str
-    display_name: Optional[str] = None
+# JWT Configuration
+JWT_SECRET_KEY = settings.JWT_SECRET_KEY if hasattr(settings, 'JWT_SECRET_KEY') else "your-super-secret-jwt-key-change-in-production"
+JWT_ALGORITHM = "HS256"
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
+class SessionRequest(BaseModel):
+    client_info: str = "web_client"
 
-class Token(BaseModel):
+class SessionResponse(BaseModel):
     access_token: str
     token_type: str
-    user_id: str
-    email: str
-    display_name: Optional[str]
+    expires_in: int
+    session_id: str
+    created_at: str
 
-class TokenData(BaseModel):
-    email: Optional[str] = None
+class TokenValidationResponse(BaseModel):
+    valid: bool
+    session_id: str
+    expires_at: str
+    created_at: str
 
-# Password hashing utilities
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
-# JWT utilities
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict, expires_delta: timedelta = None):
+    """Create JWT access token"""
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    to_encode.update({
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+        "type": "access_token"
+    })
+    
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return encoded_jwt
 
-def verify_token(token: str):
+def verify_token(token: str) -> dict:
+    """Verify and decode JWT token"""
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Could not validate credentials",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        return TokenData(email=email)
-    except jwt.PyJWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-# Database utilities
-def get_user_by_email(db: Session, email: str):
-    return db.query(User).filter(User.email == email).first()
-
-def create_user(db: Session, user: UserSignup):
-    hashed_password = get_password_hash(user.password)
-    db_user = User(
-        email=user.email,
-        hashed_password=hashed_password,
-        display_name=user.display_name
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
-
-def authenticate_user(db: Session, email: str, password: str):
-    user = get_user_by_email(db, email)
-    if not user:
-        return False
-    if not verify_password(password, user.hashed_password):
-        return False
-    return user
-
-# Dependency to get current user
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+async def get_current_session(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Dependency to get current session from JWT token"""
     token = credentials.credentials
-    token_data = verify_token(token)
-    user = get_user_by_email(db, email=token_data.email)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return user
-
-# Auth endpoints
-@authRoutes.post("/signup", response_model=Token)
-async def signup(user_data: UserSignup, db: Session = Depends(get_db)):
-    # Check if user already exists
-    existing_user = get_user_by_email(db, user_data.email)
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
+    payload = verify_token(token)
     
-    # Create new user
-    user = create_user(db, user_data)
-    
-    # Create access token
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
-    
-    return Token(
-        access_token=access_token,
-        token_type="bearer",
-        user_id=str(user.id),
-        email=user.email,
-        display_name=user.display_name
-    )
-
-@authRoutes.post("/login", response_model=Token)
-async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
-    user = authenticate_user(db, user_credentials.email, user_credentials.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    # Update last login
-    user.last_login = datetime.utcnow()
-    db.commit()
-    
-    # Create access token
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
-    
-    return Token(
-        access_token=access_token,
-        token_type="bearer",
-        user_id=str(user.id),
-        email=user.email,
-        display_name=user.display_name
-    )
-
-@authRoutes.get("/me")
-async def get_current_user_info(current_user: User = Depends(get_current_user)):
     return {
-        "user_id": str(current_user.id),
-        "email": current_user.email,
-        "display_name": current_user.display_name,
-        "is_active": current_user.is_active,
-        "email_verified": current_user.email_verified,
-        "created_at": current_user.created_at,
-        "last_login": current_user.last_login
+        "session_id": payload.get("session_id"),
+        "created_at": payload.get("created_at"),
+        "expires_at": payload.get("exp")
     }
 
-@authRoutes.post("/logout")
-async def logout():
-    # Since JWT tokens are stateless, logout is handled on the client side
-    # by simply removing the token from storage
-    return {"message": "Successfully logged out"}
+@router.post("/create-session", response_model=SessionResponse)
+async def create_session(request: SessionRequest):
+    """Create a new session with JWT token"""
+    try:
+        # Generate unique session ID
+        session_id = f"session_{uuid.uuid4().hex}_{int(datetime.now().timestamp())}"
+        created_at = datetime.now(timezone.utc).isoformat()
+        
+        # Create token payload
+        token_data = {
+            "session_id": session_id,
+            "client_info": request.client_info,
+            "created_at": created_at
+        }
+        
+        # Create JWT token
+        access_token = create_access_token(data=token_data)
+        
+        logger.info(f"Created new session: {session_id}")
+        
+        return SessionResponse(
+            access_token=access_token,
+            token_type="bearer",
+            expires_in=JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # in seconds
+            session_id=session_id,
+            created_at=created_at
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to create session: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create session")
+
+@router.post("/validate-token", response_model=TokenValidationResponse)
+async def validate_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Validate JWT token and return session info"""
+    try:
+        payload = verify_token(credentials.credentials)
+        
+        return TokenValidationResponse(
+            valid=True,
+            session_id=payload.get("session_id"),
+            expires_at=datetime.fromtimestamp(payload.get("exp"), tz=timezone.utc).isoformat(),
+            created_at=payload.get("created_at")
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Token validation error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Token validation failed")
+
+@router.post("/refresh-token")
+async def refresh_token(current_session: dict = Depends(get_current_session)):
+    """Refresh JWT token"""
+    try:
+        # Create new token with same session data
+        token_data = {
+            "session_id": current_session["session_id"],
+            "client_info": "web_client",
+            "created_at": current_session["created_at"]
+        }
+        
+        new_token = create_access_token(data=token_data)
+        
+        return {
+            "access_token": new_token,
+            "token_type": "bearer",
+            "expires_in": JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            "session_id": current_session["session_id"]
+        }
+        
+    except Exception as e:
+        logger.error(f"Token refresh failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Token refresh failed")
+
+@router.get("/session-info")
+async def get_session_info(current_session: dict = Depends(get_current_session)):
+    """Get current session information"""
+    return {
+        "session_id": current_session["session_id"],
+        "created_at": current_session["created_at"],
+        "expires_at": datetime.fromtimestamp(current_session["expires_at"], tz=timezone.utc).isoformat(),
+        "status": "active",
+        "token_valid": True
+    }
+
+# Export router
+authRoutes = router
