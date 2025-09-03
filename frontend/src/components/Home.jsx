@@ -1,11 +1,10 @@
-// Home.jsx - Fixed Version Without Process Errors
+// Home.jsx - Complete Tailwind CSS Version
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createSession, getSessionToken, getSessionId } from '../services/api';
-import './Home.css';
 
 const Home = () => {
-  // State Management
+  // All your existing state management
   const [sessionToken, setSessionToken] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
@@ -20,29 +19,22 @@ const Home = () => {
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
-  // ✅ FIXED: Safe environment variable access
+  // Configuration
   const getApiBaseUrl = () => {
-    // Try multiple ways to get the API URL safely
     if (typeof process !== 'undefined' && process.env) {
       return process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
     }
-    
-    // Fallback for when process is not defined
     if (window.REACT_APP_API_BASE_URL) {
       return window.REACT_APP_API_BASE_URL;
     }
-    
-    // Default fallback
     return 'http://localhost:8000/api/v1';
   };
 
   const API_BASE_URL = getApiBaseUrl();
-
-  // Configuration Constants
   const SUPPORTED_FORMATS = ['.pdf', '.txt', '.doc', '.docx'];
-  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+  const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
-  // Initialize Session on Mount
+  // All your existing functions remain exactly the same...
   useEffect(() => {
     initializeSession();
   }, []);
@@ -60,41 +52,31 @@ const Home = () => {
       
       setSessionToken(token);
       setSessionId(sessionIdValue);
-      console.log(`✅ Session initialized: ${sessionIdValue}`);
     } catch (err) {
       setError('Failed to initialize session. Please refresh the page.');
-      console.error('Session initialization error:', err);
     }
   }, []);
 
-  // File Validation
   const validateFile = useCallback((file) => {
     const errors = [];
-    
     if (!file) {
       errors.push('No file selected');
       return errors;
     }
-
     if (file.size > MAX_FILE_SIZE) {
       errors.push(`File size exceeds ${MAX_FILE_SIZE / (1024 * 1024)}MB limit`);
     }
-
     const fileName = file.name.toLowerCase();
     const isValidType = SUPPORTED_FORMATS.some(format => fileName.endsWith(format));
-    
     if (!isValidType) {
       errors.push(`Unsupported file type. Supported: ${SUPPORTED_FORMATS.join(', ')}`);
     }
-
     if (file.size === 0) {
       errors.push('File appears to be empty');
     }
-
     return errors;
   }, []);
 
-  // ✅ ENHANCED PDF UPLOAD - Fixed API call
   const processDocument = useCallback(async () => {
     if (!selectedFile || !sessionToken) {
       setError('Please select a file and ensure session is active');
@@ -109,22 +91,17 @@ const Home = () => {
       const isPDF = selectedFile.name.toLowerCase().endsWith('.pdf');
       
       if (isPDF) {
-        setProcessingStage('Uploading PDF with enhanced extraction...');
-        
+        setProcessingStage('🔍 Analyzing PDF with AI-powered extraction...');
         const formData = new FormData();
         formData.append('file', selectedFile);
 
-        // Progress simulation
         const progressInterval = setInterval(() => {
           setUploadProgress(prev => Math.min(prev + 10, 90));
         }, 200);
 
-        // ✅ FIXED: Safe fetch call
         const response = await fetch(`${API_BASE_URL}/documents/upload-pdf`, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`
-          },
+          headers: { 'Authorization': `Bearer ${sessionToken}` },
           body: formData
         });
 
@@ -132,12 +109,10 @@ const Home = () => {
         setUploadProgress(100);
 
         if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`PDF upload failed: ${errorText}`);
+          throw new Error(`PDF upload failed: ${await response.text()}`);
         }
 
         const result = await response.json();
-        
         setProcessingResult({
           documentId: result.document_id,
           sessionDocumentId: result.session_document_id,
@@ -149,12 +124,10 @@ const Home = () => {
         });
 
         setSuccess(true);
-        setProcessingStage(`✅ PDF processed successfully! Quality: ${result.extraction_info.quality_score.toFixed(1)}/10, ${result.chunks_stored} chunks created`);
+        setProcessingStage(`✅ PDF processed successfully! Quality: ${result.extraction_info.quality_score.toFixed(1)}/10`);
         
       } else {
-        // Text file processing
-        setProcessingStage('Processing text document...');
-        
+        setProcessingStage('📝 Processing text document...');
         const fileContent = await readFileAsText(selectedFile);
         
         const textData = {
@@ -175,12 +148,10 @@ const Home = () => {
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Text processing failed: ${errorText}`);
+          throw new Error(`Text processing failed: ${await response.text()}`);
         }
 
         const result = await response.json();
-        
         setProcessingResult({
           documentId: result.document_id,
           sessionDocumentId: result.session_document_id,
@@ -196,31 +167,21 @@ const Home = () => {
       }
 
     } catch (error) {
-      console.error('❌ Document processing failed:', error);
       setError(`Processing failed: ${error.message}`);
     } finally {
       setIsProcessing(false);
     }
   }, [selectedFile, sessionToken, API_BASE_URL]);
 
-  // Helper function to read file as text
   const readFileAsText = useCallback((file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      
-      reader.onload = (event) => {
-        resolve(event.target.result);
-      };
-      
-      reader.onerror = () => {
-        reject(new Error('Failed to read file'));
-      };
-      
+      reader.onload = (event) => resolve(event.target.result);
+      reader.onerror = () => reject(new Error('Failed to read file'));
       reader.readAsText(file, 'UTF-8');
     });
   }, []);
 
-  // Drag and Drop Handlers
   const handleDragEnter = useCallback((e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -257,7 +218,6 @@ const Home = () => {
       setError(validationErrors.join('. '));
       return;
     }
-
     setSelectedFile(file);
     setError('');
     setSuccess(false);
@@ -271,7 +231,6 @@ const Home = () => {
     }
   }, [handleFileSelect]);
 
-  // Navigate to Analysis
   const navigateToAnalysis = useCallback(() => {
     if (processingResult) {
       localStorage.setItem('current_document', JSON.stringify({
@@ -282,12 +241,10 @@ const Home = () => {
         extraction_info: processingResult.extractionInfo,
         processing_mode: processingResult.processingMode
       }));
-      
       navigate('/analysis');
     }
   }, [processingResult, selectedFile, navigate]);
 
-  // File Size Formatter
   const formatFileSize = useCallback((bytes) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -297,182 +254,297 @@ const Home = () => {
   }, []);
 
   return (
-    <div className="home-container">
-      <div className="hero-section">
-        <div className="hero-content">
-          <h1>
-            <span className="logo-icon">⚖️</span>
-            Enhanced Legal Document Analysis
-          </h1>
-          <p className="hero-subtitle">
-            Upload your legal documents for comprehensive AI-powered analysis with enhanced PDF processing
-          </p>
-        </div>
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative overflow-x-hidden">
+      {/* Background Effects */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-10 left-5 w-96 h-96 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-5 w-80 h-80 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-r from-cyan-600/20 to-blue-600/20 rounded-full blur-3xl animate-pulse delay-2000 transform -translate-x-1/2 -translate-y-1/2"></div>
       </div>
 
-      <div className="upload-section">
-        <div className="upload-container">
-          <div 
-            className={`upload-area ${isDragging ? 'dragging' : ''} ${selectedFile ? 'file-selected' : ''}`}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onClick={() => !isProcessing && fileInputRef.current?.click()}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={SUPPORTED_FORMATS.join(',')}
-              onChange={handleFileInput}
-              style={{ display: 'none' }}
-              disabled={isProcessing}
-            />
-
-            {!selectedFile ? (
-              <div className="upload-prompt">
-                <div className="upload-icon">📁</div>
-                <h3>Drop your legal document here</h3>
-                <p>or click to browse files</p>
-                <div className="supported-formats">
-                  Supported: {SUPPORTED_FORMATS.join(', ')}
-                </div>
-                <div className="enhanced-notice">
-                  <span className="enhancement-icon">✨</span>
-                  Enhanced PDF processing with quality scoring
-                </div>
+      {/* Main Content */}
+      <main className="relative z-10">
+        {/* Hero Section */}
+        <section className="pt-32 pb-16 px-4 text-center">
+          <div className="max-w-6xl mx-auto">
+            {/* Logo */}
+            <div className="mb-12">
+              <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-2xl shadow-blue-500/50 animate-float">
+                <svg viewBox="0 0 24 24" fill="none" className="w-12 h-12 text-white">
+                  <path d="M12 2L4 7L12 12L20 7L12 2Z" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M4 12L12 17L20 12" stroke="currentColor" strokeWidth="2"/>
+                </svg>
               </div>
-            ) : (
-              <div className="file-info">
-                <div className="file-icon">
-                  {selectedFile.name.toLowerCase().endsWith('.pdf') ? '📄' : '📝'}
+            </div>
+            
+            {/* Title */}
+            <h1 className="mb-8">
+              <span className="block text-6xl sm:text-7xl md:text-8xl font-black mb-4 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent leading-tight">
+                Accord AI
+              </span>
+              <span className="block text-xl sm:text-2xl md:text-3xl font-semibold text-slate-400 tracking-wide">
+                Legal Document Intelligence
+              </span>
+            </h1>
+            
+            {/* Description */}
+            <p className="text-lg sm:text-xl text-slate-300 max-w-4xl mx-auto leading-relaxed mb-12">
+              Transform your legal document analysis with cutting-edge AI technology. Upload contracts, agreements, and legal documents for comprehensive{' '}
+              <span className="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent font-semibold">risk assessment</span>,{' '}
+              <span className="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent font-semibold">intelligent summarization</span>, and{' '}
+              <span className="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent font-semibold">negotiation assistance</span>.
+            </p>
+
+            {/* Tech Badges */}
+            <div className="flex flex-wrap justify-center gap-4 mb-8">
+              {[
+                { icon: '🤖', text: 'Llama 3.3 70B' },
+                { icon: '📄', text: 'Enhanced PDF' },
+                { icon: '🛡️', text: 'Secure Analysis' }
+              ].map((badge, index) => (
+                <div key={index} className="flex items-center gap-3 px-6 py-3 bg-slate-800/60 backdrop-blur-sm border border-blue-500/30 rounded-full hover:bg-blue-600/20 hover:border-blue-500/50 transition-all duration-300 hover:-translate-y-1">
+                  <span className="text-2xl">{badge.icon}</span>
+                  <span className="font-semibold text-slate-200">{badge.text}</span>
                 </div>
-                <div className="file-details">
-                  <h3>{selectedFile.name}</h3>
-                  <p>{formatFileSize(selectedFile.size)}</p>
-                  {selectedFile.name.toLowerCase().endsWith('.pdf') && (
-                    <div className="pdf-enhancement">
-                      <span className="enhancement-badge">Enhanced PDF Processing</span>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Upload Section */}
+        <section className="py-16 px-4 bg-slate-900/30">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl sm:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                Upload Your Document
+              </h2>
+              <p className="text-xl text-slate-400">
+                Drag and drop your legal document or click to browse files
+              </p>
+            </div>
+            
+            {/* Upload Zone */}
+            <div 
+              className={`relative w-full min-h-96 bg-slate-800/40 backdrop-blur-sm border-2 border-dashed rounded-3xl p-8 text-center cursor-pointer transition-all duration-300 mb-8 ${
+                isDragging 
+                  ? 'border-green-400 bg-green-500/10 scale-105' 
+                  : selectedFile 
+                    ? 'border-green-500 bg-green-500/5' 
+                    : isProcessing 
+                      ? 'border-yellow-500 bg-yellow-500/5 cursor-not-allowed' 
+                      : 'border-blue-500/50 hover:border-blue-500 hover:bg-blue-500/5 hover:-translate-y-2'
+              }`}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onClick={() => !isProcessing && fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={SUPPORTED_FORMATS.join(',')}
+                onChange={handleFileInput}
+                className="hidden"
+                disabled={isProcessing}
+              />
+
+              {!selectedFile ? (
+                <div className="flex flex-col items-center gap-6">
+                  <div className="w-20 h-20 text-blue-400 animate-bounce">
+                    <svg viewBox="0 0 24 24" fill="none" className="w-full h-full">
+                      <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" strokeWidth="2"/>
+                      <polyline points="7,10 12,15 17,10" stroke="currentColor" strokeWidth="2"/>
+                      <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" strokeWidth="2"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-bold text-white mb-2">Drop your document here</h3>
+                    <p className="text-xl text-slate-400">
+                      or <span className="text-blue-400 font-semibold underline">click to select a file</span>
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8">
+                    {['PDF', 'DOC', 'DOCX', 'TXT'].map((format) => (
+                      <div key={format} className="flex flex-col items-center gap-2 p-4 bg-slate-700/50 rounded-lg border border-slate-600/50">
+                        <span className="text-2xl">📄</span>
+                        <span className="text-sm font-semibold text-slate-300">{format}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-slate-500 text-sm mt-4">Maximum file size: 50MB</p>
+                </div>
+              ) : (
+                <div className="flex items-center gap-6 p-6 bg-slate-700/50 rounded-2xl text-left relative">
+                  <div className="flex-shrink-0">
+                    <div className={`w-20 h-24 rounded-xl flex items-center justify-center text-white font-bold text-sm ${
+                      selectedFile.name.toLowerCase().endsWith('.pdf') 
+                        ? 'bg-gradient-to-r from-red-500 to-red-600' 
+                        : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                    }`}>
+                      {selectedFile.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'DOC'}
                     </div>
-                  )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xl font-semibold text-white mb-2 truncate">{selectedFile.name}</h3>
+                    <p className="text-slate-400 mb-3">{formatFileSize(selectedFile.size)}</p>
+                    {selectedFile.name.toLowerCase().endsWith('.pdf') && (
+                      <span className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white text-sm font-semibold rounded-full">
+                        <span>✨</span>
+                        Enhanced PDF Processing
+                      </span>
+                    )}
+                  </div>
+                  <button 
+                    className="absolute top-4 right-4 w-8 h-8 bg-red-500/20 border-2 border-red-500/50 rounded-full flex items-center justify-center text-red-400 hover:bg-red-500/30 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedFile(null);
+                      setError('');
+                      setSuccess(false);
+                      setProcessingResult(null);
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Error Display */}
+            {error && (
+              <div className="flex items-center gap-4 p-4 mb-6 bg-red-500/10 border border-red-500/30 rounded-lg text-red-300">
+                <span className="text-2xl">⚠️</span>
+                <span className="font-medium">{error}</span>
+              </div>
+            )}
+
+            {/* Process Button */}
+            {selectedFile && !isProcessing && !success && (
+              <button 
+                className="w-full max-w-md mx-auto block bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/50"
+                onClick={processDocument}
+              >
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-2xl">⚡</span>
+                  <span className="text-lg">
+                    {selectedFile.name.toLowerCase().endsWith('.pdf') 
+                      ? 'Analyze PDF with AI' 
+                      : 'Process Document'}
+                  </span>
+                </div>
+              </button>
+            )}
+
+            {/* Processing Status */}
+            {isProcessing && (
+              <div className="bg-slate-800/60 backdrop-blur-sm p-6 rounded-2xl border border-slate-600/50">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white mb-1">Processing Your Document</h3>
+                    <p className="text-slate-400">{processingStage}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 h-3 bg-slate-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 relative"
+                      style={{ width: `${uploadProgress}%` }}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+                    </div>
+                  </div>
+                  <span className="text-blue-400 font-bold min-w-12">{uploadProgress}%</span>
                 </div>
               </div>
             )}
-          </div>
 
-          {error && (
-            <div className="error-message">
-              <span className="error-icon">⚠️</span>
-              {error}
-            </div>
-          )}
-
-          {selectedFile && !isProcessing && !success && (
-            <button 
-              className="process-button"
-              onClick={processDocument}
-              disabled={isProcessing}
-            >
-              <span>🔍</span>
-              {selectedFile.name.toLowerCase().endsWith('.pdf') 
-                ? 'Process PDF with Enhanced Extraction' 
-                : 'Process Document'}
-            </button>
-          )}
-
-          {isProcessing && (
-            <div className="processing-section">
-              <div className="processing-header">
-                <h3>Processing Document...</h3>
-                <p>{processingStage}</p>
-              </div>
-
-              <div className="progress-container">
-                <div className="progress-item">
-                  <label>Upload Progress:</label>
-                  <div className="progress-bar">
-                    <div 
-                      className="progress-fill upload"
-                      style={{ width: `${uploadProgress}%` }}
-                    ></div>
+            {/* Success Status */}
+            {success && processingResult && (
+              <div className="bg-green-500/10 backdrop-blur-sm border border-green-500/30 p-6 rounded-2xl">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center text-3xl">
+                    ✅
                   </div>
-                  <span>{uploadProgress}%</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {success && processingResult && (
-            <div className="success-section">
-              <div className="success-header">
-                <div className="success-icon">✅</div>
-                <h3>Document Processing Complete!</h3>
-                <p>Your document has been processed with enhanced analysis and stored with {processingResult.chunksStored} chunks.</p>
-              </div>
-
-              <div className="success-stats">
-                <div className="stat-item">
-                  <span className="stat-label">Chunks Created:</span>
-                  <span className="stat-value">{processingResult.chunksStored}</span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">Processing Mode:</span>
-                  <span className="stat-value">
-                    {processingResult.processingMode === 'enhanced_pdf_processing' 
-                      ? 'Enhanced PDF' 
-                      : 'Text Processing'}
-                  </span>
-                </div>
-                {processingResult.extractionInfo?.quality_score && (
-                  <div className="stat-item">
-                    <span className="stat-label">Extraction Quality:</span>
-                    <span className="stat-value">
-                      {processingResult.extractionInfo.quality_score.toFixed(1)}/10
-                    </span>
+                  <div>
+                    <h3 className="text-2xl font-bold text-white mb-1">Document Successfully Processed! 🎉</h3>
+                    <p className="text-slate-300">Your document has been analyzed with {processingResult.chunksStored} intelligent chunks.</p>
                   </div>
-                )}
+                </div>
+
+                
+
+                <button 
+                  className="w-full max-w-md mx-auto block bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-green-500/50"
+                  onClick={navigateToAnalysis}
+                >
+                  <div className="flex items-center justify-center gap-3">
+                    <span className="text-2xl">📊</span>
+                    <span className="text-lg">Start Legal Analysis</span>
+                  </div>
+                </button>
               </div>
+            )}
+          </div>
+        </section>
 
-              <button 
-                className="analyze-button"
-                onClick={navigateToAnalysis}
-              >
-                <span>🎯</span>
-                Start Enhanced Analysis
-              </button>
+        {/* Features Section */}
+        <section className="py-20 px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl sm:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
+                Powerful AI-Driven Analysis
+              </h2>
+              <p className="text-xl text-slate-400">
+                Comprehensive legal document intelligence at your fingertips
+              </p>
             </div>
-          )}
-        </div>
-      </div>
 
-      <div className="features-section">
-        <h2>Enhanced Processing Features</h2>
-        <div className="features-grid">
-          <div className="feature-card">
-            <div className="feature-icon">📄</div>
-            <h3>Enhanced PDF Processing</h3>
-            <p>Multi-method PDF text extraction with quality scoring and automatic fallbacks</p>
+            <div className="grid md:grid-cols-3 gap-8">
+              {[
+                {
+                  icon: '🔍',
+                  title: 'Risk Analysis',
+                  description: 'Identify potential legal risks, liability issues, and compliance concerns in your contracts with AI precision.'
+                },
+                {
+                  icon: '📄',
+                  title: 'Smart Summarization',
+                  description: 'Get comprehensive summaries with key terms, obligations, and critical clauses highlighted automatically.'
+                },
+                {
+                  icon: '🤝',
+                  title: 'Negotiation Assistant',
+                  description: 'Generate professional email templates and negotiation strategies based on contract analysis results.'
+                }
+              ].map((feature, index) => (
+                <div key={index} className="bg-slate-800/40 backdrop-blur-sm border border-slate-600/50 p-8 rounded-2xl hover:bg-slate-700/50 hover:border-blue-500/50 transition-all duration-300 hover:-translate-y-2 group relative overflow-hidden">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+                  <div className="text-5xl mb-6 group-hover:scale-110 transition-transform duration-300">{feature.icon}</div>
+                  <h3 className="text-2xl font-bold text-white mb-4">{feature.title}</h3>
+                  <p className="text-slate-300 leading-relaxed">{feature.description}</p>
+                </div>
+              ))}
+            </div>
           </div>
+        </section>
+      </main>
 
-          <div className="feature-card">
-            <div className="feature-icon">🤖</div>
-            <h3>Llama 3.3 70B Analysis</h3>
-            <p>Powered by advanced AI for superior legal document understanding</p>
+      {/* Footer */}
+      <footer className="bg-slate-900/60 border-t border-slate-700/50 py-8">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="text-slate-400">
+            Powered by Accord AI • Enterprise-Grade Security
           </div>
-
-          <div className="feature-card">
-            <div className="feature-icon">🔧</div>
-            <h3>Legal Document Chunking</h3>
-            <p>Specialized chunking that preserves legal context and section boundaries</p>
-          </div>
-
-          <div className="feature-card">
-            <div className="feature-icon">🛡️</div>
-            <h3>Session Isolation</h3>
-            <p>JWT-based document isolation for secure and private processing</p>
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${sessionToken ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
+            <span className="text-slate-400 text-sm">
+              Session {sessionToken ? 'Active' : 'Inactive'}
+            </span>
           </div>
         </div>
-      </div>
+      </footer>
     </div>
   );
 };
