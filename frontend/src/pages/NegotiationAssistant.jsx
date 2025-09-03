@@ -1,35 +1,68 @@
-// NegotiationAssistant.jsx - Clean Email Templates
-import React, { useState } from 'react';
+// NegotiationAssistant.jsx - Enhanced Email Templates with Better Parsing
+import React, { useState, useEffect } from 'react';
 import { runNegotiationAssistant } from '../services/api';
 
 const NegotiationAssistant = ({ documentInfo }) => {
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState('');
+  const [debugInfo, setDebugInfo] = useState('');
 
   const runAnalysis = async () => {
-    if (!documentInfo?.document_id) return;
+    if (!documentInfo?.document_id) {
+      setError('No document ID available for analysis.');
+      return;
+    }
     
     setLoading(true);
     setError('');
+    setDebugInfo('Generating email templates with enhanced Pinecone...');
     
     try {
+      console.log('🤝 Starting negotiation analysis for:', documentInfo.document_id);
       const response = await runNegotiationAssistant(documentInfo.document_id);
+      
       if (response.success) {
+        console.log('✅ Negotiation analysis successful:', response.data);
         setAnalysis(response.data);
+        setDebugInfo(`Templates generated: ${response.data.relevant_chunks?.length || 0} chunks analyzed with Pinecone Enhanced`);
       } else {
-        setError(response.error);
+        console.error('❌ Negotiation analysis failed:', response.error);
+        setError(response.error || 'Email generation failed');
+        setDebugInfo('Generation failed');
       }
     } catch (err) {
-      setError('Analysis failed. Please try again.');
+      console.error('❌ Negotiation analysis error:', err);
+      setError('Email generation failed. Please try again.');
+      setDebugInfo(`Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
+  // Auto-run analysis when component mounts
+  useEffect(() => {
+    if (documentInfo?.document_id && !analysis && !loading) {
+      runAnalysis();
+    }
+  }, [documentInfo?.document_id]);
+
   const copyToClipboard = (text) => {
+    if (!text) return;
     navigator.clipboard.writeText(text).then(() => {
-      alert('Email copied to clipboard!');
+      // Show success notification
+      const notification = document.createElement('div');
+      notification.textContent = '✅ Email copied to clipboard!';
+      notification.className = 'copy-notification';
+      document.body.appendChild(notification);
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 2000);
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+      alert('Failed to copy email to clipboard');
     });
   };
 
@@ -41,7 +74,7 @@ const NegotiationAssistant = ({ documentInfo }) => {
         
         <button 
           onClick={runAnalysis}
-          disabled={loading}
+          disabled={loading || !documentInfo?.document_id}
           className="analyze-btn"
         >
           {loading ? (
@@ -52,91 +85,104 @@ const NegotiationAssistant = ({ documentInfo }) => {
           ) : (
             <>
               <span>📧</span>
-              Generate Email Templates
+              {analysis ? 'Regenerate Templates' : 'Generate Email Templates'}
             </>
           )}
         </button>
       </div>
 
-      {error && (
-        <div className="error-message">
-          <span className="error-icon">⚠️</span>
-          <p>{error}</p>
+      {debugInfo && (
+        <div className="debug-info">
+          <small>Status: {debugInfo}</small>
         </div>
       )}
 
-      {analysis && (
+      {error && (
+        <div className="error-message">
+          <span className="error-icon">⚠️</span>
+          <div>
+            <strong>Generation Failed:</strong>
+            <p>{error}</p>
+          </div>
+        </div>
+      )}
+
+      {analysis && analysis.analysis && analysis.analysis.emails && (
         <div className="negotiation-results">
-          {/* ✅ SIDE-BY-SIDE EMAIL TEMPLATES */}
-          <div className="emails-container">
+          {/* ✅ CLEAN SIDE-BY-SIDE EMAIL TEMPLATES */}
+          <div className="emails-container-clean">
             {/* Acceptance Email */}
-            <div className="email-panel acceptance-panel">
-              <div className="email-header">
-                <h3>✅ Acceptance Email</h3>
+            <div className="email-panel-clean acceptance">
+              <div className="email-header-clean">
+                <div className="email-title">
+                  <span className="email-icon">✅</span>
+                  <h3>Acceptance Email</h3>
+                </div>
                 <button 
-                  className="copy-btn"
-                  onClick={() => copyToClipboard(analysis.analysis.emails?.acceptance)}
+                  className="copy-btn-clean"
+                  onClick={() => copyToClipboard(analysis.analysis.emails.acceptance)}
                 >
-                  📋 Copy Email
+                  📋 Copy
                 </button>
               </div>
-              <div className="email-content">
-                <pre>
-                  {analysis.analysis.emails?.acceptance || 'Acceptance email not available'}
+              <div className="email-content-clean">
+                <pre className="email-text-clean">
+                  {analysis.analysis.emails.acceptance || 'Acceptance email not available'}
                 </pre>
               </div>
             </div>
 
             {/* Rejection Email */}
-            <div className="email-panel rejection-panel">
-              <div className="email-header">
-                <h3>❌ Modification Request Email</h3>
+            <div className="email-panel-clean rejection">
+              <div className="email-header-clean">
+                <div className="email-title">
+                  <span className="email-icon">❌</span>
+                  <h3>Modification Request</h3>
+                </div>
                 <button 
-                  className="copy-btn"
-                  onClick={() => copyToClipboard(analysis.analysis.emails?.rejection)}
+                  className="copy-btn-clean"
+                  onClick={() => copyToClipboard(analysis.analysis.emails.rejection)}
                 >
-                  📋 Copy Email
+                  📋 Copy
                 </button>
               </div>
-              <div className="email-content">
-                <pre>
-                  {analysis.analysis.emails?.rejection || 'Rejection email not available'}
+              <div className="email-content-clean">
+                <pre className="email-text-clean">
+                  {analysis.analysis.emails.rejection || 'Rejection email not available'}
                 </pre>
               </div>
             </div>
           </div>
 
-          {/* Key Negotiation Points */}
-          {analysis.analysis.key_points && (
-            <div className="key-points-section">
-              <h3>🔑 Key Negotiation Points</h3>
-              <div className="points-grid">
-                {analysis.analysis.key_points.map((point, index) => (
-                  <div key={index} className="point-card">
-                    <h4>{point.issue}</h4>
-                    <div className="point-detail">
-                      <strong>Concern:</strong>
-                      <p>{point.concern}</p>
-                    </div>
-                    <div className="point-detail">
-                      <strong>Suggestion:</strong>
-                      <p>{point.suggestion}</p>
-                    </div>
-                  </div>
-                ))}
+          {/* Quick Instructions */}
+          <div className="quick-instructions">
+            <h4>💡 Quick Guide</h4>
+            <div className="instructions-grid">
+              <div className="instruction-item">
+                <span className="instruction-icon">✏️</span>
+                <span>Replace [Counterparty], [Your Name] with actual names</span>
+              </div>
+              <div className="instruction-item">
+                <span className="instruction-icon">📝</span>
+                <span>Review content before sending</span>
+              </div>
+              <div className="instruction-item">
+                <span className="instruction-icon">⚖️</span>
+                <span>Consider legal review for important contracts</span>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Usage Instructions */}
-          <div className="usage-instructions">
-            <h3>💡 How to Use These Templates</h3>
-            <ul>
-              <li>Replace placeholder text like [Counterparty], [Your Name] with actual information</li>
-              <li>Customize the content to match your specific situation</li>
-              <li>Review legal implications with your team before sending</li>
-              <li>Choose the appropriate template based on your contract decision</li>
-            </ul>
+          {/* Backend info */}
+          <div className="backend-info">
+            <h4>🔧 Analysis Details</h4>
+            <div className="backend-stats">
+              <span>Powered by: Pinecone Enhanced Vector Search</span>
+              <span>•</span>
+              <span>Chunks: {analysis.relevant_chunks?.length || 0}</span>
+              <span>•</span>
+              <span>Professional Templates Generated</span>
+            </div>
           </div>
         </div>
       )}

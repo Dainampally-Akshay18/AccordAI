@@ -1,7 +1,7 @@
-// Home.jsx - Fixed Chunking and Storage Logic
+// Home.jsx - Fixed Version Without Process Errors
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createSession, storeDocumentChunks, getSessionToken, getSessionId } from '../services/api';
+import { createSession, getSessionToken, getSessionId } from '../services/api';
 import './Home.css';
 
 const Home = () => {
@@ -12,22 +12,34 @@ const Home = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStage, setProcessingStage] = useState('');
-  const [chunkingProgress, setChunkingProgress] = useState(0);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [totalChunks, setTotalChunks] = useState(0);
-  const [processedChunks, setProcessedChunks] = useState(0);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [processingResult, setProcessingResult] = useState(null);
-  const [chunkDetails, setChunkDetails] = useState([]);
-  
+
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
+  // ✅ FIXED: Safe environment variable access
+  const getApiBaseUrl = () => {
+    // Try multiple ways to get the API URL safely
+    if (typeof process !== 'undefined' && process.env) {
+      return process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
+    }
+    
+    // Fallback for when process is not defined
+    if (window.REACT_APP_API_BASE_URL) {
+      return window.REACT_APP_API_BASE_URL;
+    }
+    
+    // Default fallback
+    return 'http://localhost:8000/api/v1';
+  };
+
+  const API_BASE_URL = getApiBaseUrl();
+
   // Configuration Constants
-  const CHUNK_SIZE = 800; // words per chunk
-  const CHUNK_OVERLAP = 100; // overlapping words
-  const SUPPORTED_FORMATS = ['.txt', '.doc', '.docx', '.pdf', '.md'];
+  const SUPPORTED_FORMATS = ['.pdf', '.txt', '.doc', '.docx'];
   const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
   // Initialize Session on Mount
@@ -48,42 +60,11 @@ const Home = () => {
       
       setSessionToken(token);
       setSessionId(sessionIdValue);
-      
+      console.log(`✅ Session initialized: ${sessionIdValue}`);
     } catch (err) {
       setError('Failed to initialize session. Please refresh the page.');
       console.error('Session initialization error:', err);
     }
-  }, []);
-
-  // Advanced Text Chunking with Overlap
-  const chunkText = useCallback((text) => {
-    const words = text.split(/\s+/).filter(word => word.length > 0);
-    const chunks = [];
-    const step = CHUNK_SIZE - CHUNK_OVERLAP;
-    
-    for (let i = 0; i < words.length; i += step) {
-      const chunkWords = words.slice(i, i + CHUNK_SIZE);
-      if (chunkWords.length === 0) break;
-      
-      const chunkText = chunkWords.join(' ');
-      chunks.push({
-        index: Math.floor(i / step),
-        text: chunkText,
-        wordCount: chunkWords.length,
-        startWord: i,
-        endWord: Math.min(i + CHUNK_SIZE - 1, words.length - 1)
-      });
-      
-      // Update chunking progress
-      const progress = Math.min(100, Math.round(((i + CHUNK_SIZE) / words.length) * 100));
-      setChunkingProgress(progress);
-      
-      // Break if we've covered all words
-      if (i + CHUNK_SIZE >= words.length) break;
-    }
-    
-    console.log(`📄 Created ${chunks.length} chunks from ${words.length} words`);
-    return chunks;
   }, []);
 
   // File Validation
@@ -101,6 +82,7 @@ const Home = () => {
 
     const fileName = file.name.toLowerCase();
     const isValidType = SUPPORTED_FORMATS.some(format => fileName.endsWith(format));
+    
     if (!isValidType) {
       errors.push(`Unsupported file type. Supported: ${SUPPORTED_FORMATS.join(', ')}`);
     }
@@ -112,57 +94,7 @@ const Home = () => {
     return errors;
   }, []);
 
-  // File Content Reader
-  const readFileContent = useCallback((file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      const timeoutId = setTimeout(() => {
-        reader.abort();
-        reject(new Error('File reading timeout'));
-      }, 30000);
-
-      reader.onload = (event) => {
-        clearTimeout(timeoutId);
-        resolve(event.target.result);
-      };
-
-      reader.onerror = () => {
-        clearTimeout(timeoutId);
-        reject(new Error('File reading failed'));
-      };
-
-      reader.readAsText(file, 'UTF-8');
-    });
-  }, []);
-
-  // ✅ FIXED: Store all chunks as one document with proper structure
-  const storeAllChunksAsDocument = useCallback(async (chunks, documentId) => {
-    // Create the full text by combining all chunks
-    const fullText = chunks.map(chunk => chunk.text).join('\n\n');
-    
-    const documentData = {
-      document_id: documentId, // Base document ID without chunk suffix
-      full_text: fullText,
-      chunk_size: CHUNK_SIZE,
-      overlap: CHUNK_OVERLAP
-    };
-
-    console.log(`📤 Storing document with ${chunks.length} chunks as single document: ${documentId}`);
-    
-    const response = await storeDocumentChunks(documentData);
-    
-    if (!response.success) {
-      throw new Error(`Failed to store document: ${response.error}`);
-    }
-
-    return {
-      documentId,
-      totalChunks: chunks.length,
-      apiResponse: response.data
-    };
-  }, []);
-
-  // Main Document Processing Function
+  // ✅ ENHANCED PDF UPLOAD - Fixed API call
   const processDocument = useCallback(async () => {
     if (!selectedFile || !sessionToken) {
       setError('Please select a file and ensure session is active');
@@ -172,74 +104,121 @@ const Home = () => {
     try {
       setIsProcessing(true);
       setError('');
-      setChunkingProgress(0);
       setUploadProgress(0);
-      setProcessedChunks(0);
-      setTotalChunks(0);
-      setChunkDetails([]);
 
-      // Stage 1: Read file content
-      setProcessingStage('Reading file content...');
-      const fileContent = await readFileContent(selectedFile);
-      console.log(`📖 File read: ${fileContent.length} characters`);
+      const isPDF = selectedFile.name.toLowerCase().endsWith('.pdf');
+      
+      if (isPDF) {
+        setProcessingStage('Uploading PDF with enhanced extraction...');
+        
+        const formData = new FormData();
+        formData.append('file', selectedFile);
 
-      // Stage 2: Chunk the document
-      setProcessingStage('Breaking document into chunks...');
-      await new Promise(resolve => setTimeout(resolve, 500)); // Allow UI update
-      
-      const chunks = chunkText(fileContent);
-      setTotalChunks(chunks.length);
-      
-      if (chunks.length === 0) {
-        throw new Error('No chunks generated from document');
+        // Progress simulation
+        const progressInterval = setInterval(() => {
+          setUploadProgress(prev => Math.min(prev + 10, 90));
+        }, 200);
+
+        // ✅ FIXED: Safe fetch call
+        const response = await fetch(`${API_BASE_URL}/documents/upload-pdf`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${sessionToken}`
+          },
+          body: formData
+        });
+
+        clearInterval(progressInterval);
+        setUploadProgress(100);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`PDF upload failed: ${errorText}`);
+        }
+
+        const result = await response.json();
+        
+        setProcessingResult({
+          documentId: result.document_id,
+          sessionDocumentId: result.session_document_id,
+          chunksStored: result.chunks_stored,
+          extractionInfo: result.extraction_info,
+          documentSize: selectedFile.size,
+          processingTime: Date.now(),
+          processingMode: 'enhanced_pdf_processing'
+        });
+
+        setSuccess(true);
+        setProcessingStage(`✅ PDF processed successfully! Quality: ${result.extraction_info.quality_score.toFixed(1)}/10, ${result.chunks_stored} chunks created`);
+        
+      } else {
+        // Text file processing
+        setProcessingStage('Processing text document...');
+        
+        const fileContent = await readFileAsText(selectedFile);
+        
+        const textData = {
+          document_id: `doc_${selectedFile.name.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`,
+          full_text: fileContent,
+          chunk_size: 500,
+          overlap: 100,
+          document_type: 'text'
+        };
+
+        const response = await fetch(`${API_BASE_URL}/documents/store_chunks`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${sessionToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(textData)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Text processing failed: ${errorText}`);
+        }
+
+        const result = await response.json();
+        
+        setProcessingResult({
+          documentId: result.document_id,
+          sessionDocumentId: result.session_document_id,
+          chunksStored: result.chunks_stored,
+          extractionInfo: { method: 'text_input', quality_score: 10.0 },
+          documentSize: selectedFile.size,
+          processingTime: Date.now(),
+          processingMode: 'text_processing'
+        });
+
+        setSuccess(true);
+        setProcessingStage(`✅ Text document processed successfully! ${result.chunks_stored} chunks created`);
       }
 
-      console.log(`🔍 Document chunked into ${chunks.length} pieces`);
-
-      // Stage 3: Generate document ID (base ID, no chunk suffix)
-      const documentId = `doc_${selectedFile.name.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}`;
-      
-      // Stage 4: Store all chunks as one document
-      setProcessingStage('Storing document in database...');
-      setUploadProgress(50);
-      
-      const result = await storeAllChunksAsDocument(chunks, documentId);
-      
-      setUploadProgress(100);
-      setProcessedChunks(chunks.length);
-      
-      // Stage 5: Success
-      setProcessingResult({
-        documentId,
-        originalDocumentId: documentId,
-        chunksStored: chunks.length,
-        documentSize: selectedFile.size,
-        processingTime: Date.now(),
-        chunkDetails: chunks.map((chunk, index) => ({
-          chunkIndex: index,
-          chunkId: `${documentId}_chunk_${index}`,
-          wordCount: chunk.wordCount
-        }))
-      });
-      
-      setChunkDetails(chunks.map((chunk, index) => ({
-        chunkIndex: index,
-        chunkId: `${documentId}_chunk_${index}`,
-        wordCount: chunk.wordCount
-      })));
-      
-      setSuccess(true);
-      setProcessingStage(`✅ Successfully processed document with ${chunks.length} chunks!`);
-      
-      console.log(`🎉 Document processing completed: ${chunks.length} chunks in 1 document`);
-      
     } catch (error) {
       console.error('❌ Document processing failed:', error);
       setError(`Processing failed: ${error.message}`);
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedFile, sessionToken, readFileContent, chunkText, storeAllChunksAsDocument]);
+  }, [selectedFile, sessionToken, API_BASE_URL]);
+
+  // Helper function to read file as text
+  const readFileAsText = useCallback((file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        resolve(event.target.result);
+      };
+      
+      reader.onerror = () => {
+        reject(new Error('Failed to read file'));
+      };
+      
+      reader.readAsText(file, 'UTF-8');
+    });
+  }, []);
 
   // Drag and Drop Handlers
   const handleDragEnter = useCallback((e) => {
@@ -265,7 +244,7 @@ const Home = () => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-
+    
     const files = e.dataTransfer.files;
     if (files.length > 0) {
       handleFileSelect(files[0]);
@@ -283,7 +262,6 @@ const Home = () => {
     setError('');
     setSuccess(false);
     setProcessingResult(null);
-    setChunkDetails([]);
   }, [validateFile]);
 
   const handleFileInput = useCallback((event) => {
@@ -297,12 +275,14 @@ const Home = () => {
   const navigateToAnalysis = useCallback(() => {
     if (processingResult) {
       localStorage.setItem('current_document', JSON.stringify({
-        document_id: processingResult.originalDocumentId,
+        document_id: processingResult.documentId,
         document_name: selectedFile?.name,
         chunks_count: processingResult.chunksStored,
         processed_at: processingResult.processingTime,
-        chunk_details: processingResult.chunkDetails
+        extraction_info: processingResult.extractionInfo,
+        processing_mode: processingResult.processingMode
       }));
+      
       navigate('/analysis');
     }
   }, [processingResult, selectedFile, navigate]);
@@ -318,344 +298,178 @@ const Home = () => {
 
   return (
     <div className="home-container">
-      {/* Animated Background */}
-      <div className="background-overlay">
-        <div className="gradient-orb orb-1"></div>
-        <div className="gradient-orb orb-2"></div>
-        <div className="gradient-orb orb-3"></div>
+      <div className="hero-section">
+        <div className="hero-content">
+          <h1>
+            <span className="logo-icon">⚖️</span>
+            Enhanced Legal Document Analysis
+          </h1>
+          <p className="hero-subtitle">
+            Upload your legal documents for comprehensive AI-powered analysis with enhanced PDF processing
+          </p>
+        </div>
       </div>
 
-      {/* Two-Column Layout Container */}
-      <div className="layout-container">
-        
-        {/* LEFT COLUMN - Main Content */}
-        <div className="left-column">
-          <div className="main-content">
-            {/* Header */}
-            <header className="page-header">
-              <div className="header-content">
-                <h1 className="main-title">
-                  <span className="title-icon">📄</span>
-                  Legal Document Processor
-                </h1>
-                <p className="subtitle">
-                  Advanced AI-powered document analysis with intelligent chunking
-                </p>
-              </div>
-            </header>
+      <div className="upload-section">
+        <div className="upload-container">
+          <div 
+            className={`upload-area ${isDragging ? 'dragging' : ''} ${selectedFile ? 'file-selected' : ''}`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            onClick={() => !isProcessing && fileInputRef.current?.click()}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={SUPPORTED_FORMATS.join(',')}
+              onChange={handleFileInput}
+              style={{ display: 'none' }}
+              disabled={isProcessing}
+            />
 
-            {/* Main Interface */}
-            <div className="processing-interface">
-              
-              {/* File Upload Section */}
-              <div className="upload-section">
-                <div 
-                  className={`upload-zone ${isDragging ? 'dragging' : ''} ${selectedFile ? 'has-file' : ''}`}
-                  onDragEnter={handleDragEnter}
-                  onDragLeave={handleDragLeave}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept={SUPPORTED_FORMATS.join(',')}
-                    onChange={handleFileInput}
-                    style={{ display: 'none' }}
-                  />
-                  
-                  {selectedFile ? (
-                    <div className="file-preview">
-                      <div className="file-icon">
-                        <span className="file-type">{selectedFile.name.split('.').pop()?.toUpperCase()}</span>
-                      </div>
-                      <div className="file-details">
-                        <h3 className="file-name">{selectedFile.name}</h3>
-                        <div className="file-meta">
-                          <span className="file-size">{formatFileSize(selectedFile.size)}</span>
-                          <span className="file-status">Ready to process</span>
-                        </div>
-                      </div>
-                      <button 
-                        className="remove-file"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedFile(null);
-                          setError('');
-                          setSuccess(false);
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="upload-prompt">
-                      <div className="upload-icon">📁</div>
-                      <h3>Drop your document here</h3>
-                      <p>or click to browse files</p>
-                      <div className="supported-formats">
-                        <small>Supported: {SUPPORTED_FORMATS.join(', ')}</small>
-                      </div>
+            {!selectedFile ? (
+              <div className="upload-prompt">
+                <div className="upload-icon">📁</div>
+                <h3>Drop your legal document here</h3>
+                <p>or click to browse files</p>
+                <div className="supported-formats">
+                  Supported: {SUPPORTED_FORMATS.join(', ')}
+                </div>
+                <div className="enhanced-notice">
+                  <span className="enhancement-icon">✨</span>
+                  Enhanced PDF processing with quality scoring
+                </div>
+              </div>
+            ) : (
+              <div className="file-info">
+                <div className="file-icon">
+                  {selectedFile.name.toLowerCase().endsWith('.pdf') ? '📄' : '📝'}
+                </div>
+                <div className="file-details">
+                  <h3>{selectedFile.name}</h3>
+                  <p>{formatFileSize(selectedFile.size)}</p>
+                  {selectedFile.name.toLowerCase().endsWith('.pdf') && (
+                    <div className="pdf-enhancement">
+                      <span className="enhancement-badge">Enhanced PDF Processing</span>
                     </div>
                   )}
                 </div>
               </div>
-
-              {/* Controls */}
-              <div className="controls-section">
-                <button
-                  className={`process-btn ${!selectedFile || isProcessing ? 'disabled' : 'active'}`}
-                  onClick={processDocument}
-                  disabled={!selectedFile || isProcessing}
-                >
-                  {isProcessing ? (
-                    <>
-                      <span className="spinner"></span>
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <span className="process-icon">⚡</span>
-                      Process Document
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Processing Status */}
-              {isProcessing && (
-                <div className="processing-status">
-                  <div className="status-header">
-                    <h4>{processingStage}</h4>
-                    <span className="status-indicator"></span>
-                  </div>
-                  
-                  <div className="progress-section">
-                    {totalChunks > 0 && (
-                      <>
-                        <div className="progress-item">
-                          <label>Chunking Progress</label>
-                          <div className="progress-bar">
-                            <div 
-                              className="progress-fill"
-                              style={{ width: `${chunkingProgress}%` }}
-                            ></div>
-                          </div>
-                          <span>{chunkingProgress}%</span>
-                        </div>
-
-                        <div className="progress-item">
-                          <label>Upload Progress</label>
-                          <div className="progress-bar">
-                            <div 
-                              className="progress-fill"
-                              style={{ width: `${uploadProgress}%` }}
-                            ></div>
-                          </div>
-                          <span>{uploadProgress}%</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {totalChunks > 0 && (
-                    <div className="stats-grid">
-                      <div className="stat-item">
-                        <span className="stat-label">Total Chunks</span>
-                        <span className="stat-value">{totalChunks}</span>
-                      </div>
-                      <div className="stat-item">
-                        <span className="stat-label">Processing</span>
-                        <span className="stat-value">Single Document</span>
-                      </div>
-                      <div className="stat-item">
-                        <span className="stat-label">Status</span>
-                        <span className="stat-value">Processing</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Error Display */}
-              {error && (
-                <div className="notification error">
-                  <div className="notification-icon">⚠️</div>
-                  <div className="notification-content">
-                    <h4>Processing Error</h4>
-                    <p>{error}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Success Display */}
-              {success && processingResult && (
-                <div className="notification success">
-                  <div className="notification-icon">✅</div>
-                  <div className="notification-content">
-                    <h4>Document Processed Successfully!</h4>
-                    <p>Your document has been processed and stored with {processingResult.chunksStored} chunks for optimal RAG analysis.</p>
-                    
-                    <div className="result-stats">
-                      <div className="result-item">
-                        <span>Document ID:</span>
-                        <span>{processingResult.originalDocumentId}</span>
-                      </div>
-                      <div className="result-item">
-                        <span>Total Chunks:</span>
-                        <span>{processingResult.chunksStored}</span>
-                      </div>
-                      <div className="result-item">
-                        <span>File Size:</span>
-                        <span>{formatFileSize(processingResult.documentSize)}</span>
-                      </div>
-                      <div className="result-item">
-                        <span>Storage Method:</span>
-                        <span>Unified Document</span>
-                      </div>
-                    </div>
-
-                    {/* Chunk Details */}
-                    <div className="chunk-summary">
-                      <h5>📊 Chunk Details:</h5>
-                      <div className="chunk-grid">
-                        {chunkDetails.slice(0, 3).map((chunk, index) => (
-                          <div key={index} className="chunk-card">
-                            <div className="chunk-header">
-                              <span className="chunk-number">#{chunk.chunkIndex + 1}</span>
-                              <span className="chunk-words">{chunk.wordCount} words</span>
-                            </div>
-                            <div className="chunk-id">Ready for Analysis</div>
-                          </div>
-                        ))}
-                        {chunkDetails.length > 3 && (
-                          <div className="chunk-card more-chunks">
-                            <div className="more-indicator">
-                              +{chunkDetails.length - 3} more chunks
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <button 
-                      className="analyze-btn"
-                      onClick={navigateToAnalysis}
-                    >
-                      <span className="analyze-icon">🔍</span>
-                      Start AI Analysis
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Session Footer */}
-            <footer className="session-footer">
-              <div className="session-indicator">
-                <div className={`session-dot ${sessionToken ? 'active' : 'inactive'}`}></div>
-                <span>Session: {sessionId ? `Active (${sessionId.substring(0, 8)}...)` : 'Inactive'}</span>
-              </div>
-              <div className="security-badge">
-                <span className="security-icon">🔒</span>
-                <span>JWT Authentication Enabled</span>
-              </div>
-            </footer>
+            )}
           </div>
+
+          {error && (
+            <div className="error-message">
+              <span className="error-icon">⚠️</span>
+              {error}
+            </div>
+          )}
+
+          {selectedFile && !isProcessing && !success && (
+            <button 
+              className="process-button"
+              onClick={processDocument}
+              disabled={isProcessing}
+            >
+              <span>🔍</span>
+              {selectedFile.name.toLowerCase().endsWith('.pdf') 
+                ? 'Process PDF with Enhanced Extraction' 
+                : 'Process Document'}
+            </button>
+          )}
+
+          {isProcessing && (
+            <div className="processing-section">
+              <div className="processing-header">
+                <h3>Processing Document...</h3>
+                <p>{processingStage}</p>
+              </div>
+
+              <div className="progress-container">
+                <div className="progress-item">
+                  <label>Upload Progress:</label>
+                  <div className="progress-bar">
+                    <div 
+                      className="progress-fill upload"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                  <span>{uploadProgress}%</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {success && processingResult && (
+            <div className="success-section">
+              <div className="success-header">
+                <div className="success-icon">✅</div>
+                <h3>Document Processing Complete!</h3>
+                <p>Your document has been processed with enhanced analysis and stored with {processingResult.chunksStored} chunks.</p>
+              </div>
+
+              <div className="success-stats">
+                <div className="stat-item">
+                  <span className="stat-label">Chunks Created:</span>
+                  <span className="stat-value">{processingResult.chunksStored}</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-label">Processing Mode:</span>
+                  <span className="stat-value">
+                    {processingResult.processingMode === 'enhanced_pdf_processing' 
+                      ? 'Enhanced PDF' 
+                      : 'Text Processing'}
+                  </span>
+                </div>
+                {processingResult.extractionInfo?.quality_score && (
+                  <div className="stat-item">
+                    <span className="stat-label">Extraction Quality:</span>
+                    <span className="stat-value">
+                      {processingResult.extractionInfo.quality_score.toFixed(1)}/10
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <button 
+                className="analyze-button"
+                onClick={navigateToAnalysis}
+              >
+                <span>🎯</span>
+                Start Enhanced Analysis
+              </button>
+            </div>
+          )}
         </div>
+      </div>
 
-        {/* RIGHT COLUMN - Information Panel */}
-        <div className="right-column">
-          <div className="info-panel">
-            
-            {/* AI Processing Showcase */}
-            <div className="showcase-section">
-              <div className="showcase-icon">
-                <div className="ai-brain">
-                  <div className="brain-pulse"></div>
-                  🧠
-                </div>
-              </div>
-              <h2>Optimized Document Processing</h2>
-              <p>Documents are intelligently chunked and stored as unified documents for superior RAG retrieval performance.</p>
-            </div>
+      <div className="features-section">
+        <h2>Enhanced Processing Features</h2>
+        <div className="features-grid">
+          <div className="feature-card">
+            <div className="feature-icon">📄</div>
+            <h3>Enhanced PDF Processing</h3>
+            <p>Multi-method PDF text extraction with quality scoring and automatic fallbacks</p>
+          </div>
 
-            {/* Chunking Process */}
-            <div className="process-section">
-              <h3>🔄 Processing Method</h3>
-              <div className="process-steps">
-                <div className="step">
-                  <span className="step-number">1</span>
-                  <span>Read & Chunk</span>
-                </div>
-                <div className="step-arrow">→</div>
-                <div className="step">
-                  <span className="step-number">2</span>
-                  <span>Unified Storage</span>
-                </div>
-                <div className="step-arrow">→</div>
-                <div className="step">
-                  <span className="step-number">3</span>
-                  <span>RAG Ready</span>
-                </div>
-              </div>
-            </div>
+          <div className="feature-card">
+            <div className="feature-icon">🤖</div>
+            <h3>Llama 3.3 70B Analysis</h3>
+            <p>Powered by advanced AI for superior legal document understanding</p>
+          </div>
 
-            {/* Features List */}
-            <div className="features-section">
-              <h3>✨ Key Features</h3>
-              <div className="features-list">
-                <div className="feature-item">
-                  <span className="feature-icon">🎯</span>
-                  <div>
-                    <strong>Smart Chunking</strong>
-                    <p>Word-based chunking with overlap for context preservation</p>
-                  </div>
-                </div>
-                <div className="feature-item">
-                  <span className="feature-icon">📋</span>
-                  <div>
-                    <strong>Unified Storage</strong>
-                    <p>All chunks stored as one document for optimal retrieval</p>
-                  </div>
-                </div>
-                <div className="feature-item">
-                  <span className="feature-icon">🔐</span>
-                  <div>
-                    <strong>Session Isolation</strong>
-                    <p>JWT-based document isolation for secure processing</p>
-                  </div>
-                </div>
-                <div className="feature-item">
-                  <span className="feature-icon">🔍</span>
-                  <div>
-                    <strong>RAG Optimized</strong>
-                    <p>Structured for efficient semantic search and analysis</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="feature-card">
+            <div className="feature-icon">🔧</div>
+            <h3>Legal Document Chunking</h3>
+            <p>Specialized chunking that preserves legal context and section boundaries</p>
+          </div>
 
-            {/* Configuration Info */}
-            <div className="config-section">
-              <h3>⚙️ Configuration</h3>
-              <div className="config-grid">
-                <div className="config-item">
-                  <span className="config-label">Chunk Size</span>
-                  <span className="config-value">{CHUNK_SIZE} words</span>
-                </div>
-                <div className="config-item">
-                  <span className="config-label">Overlap</span>
-                  <span className="config-value">{CHUNK_OVERLAP} words</span>
-                </div>
-                <div className="config-item">
-                  <span className="config-label">Max File Size</span>
-                  <span className="config-value">50 MB</span>
-                </div>
-              </div>
-            </div>
-
+          <div className="feature-card">
+            <div className="feature-icon">🛡️</div>
+            <h3>Session Isolation</h3>
+            <p>JWT-based document isolation for secure and private processing</p>
           </div>
         </div>
       </div>

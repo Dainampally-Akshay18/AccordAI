@@ -1,4 +1,4 @@
-# vector_service.py - Enhanced with Comprehensive Debugging
+# vector_service.py - Enhanced with Legal Document Chunking
 import os
 import numpy as np
 from typing import List, Dict, Any, Optional
@@ -9,6 +9,7 @@ import hashlib
 from datetime import datetime
 from app.config import settings
 import time
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -21,36 +22,135 @@ class VectorService:
         
         # Use a model that works with your index dimensions
         self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-        self.target_dimension = 384  # Match your actual Pinecone index dimension
+        self.target_dimension = 384 # Match your actual Pinecone index dimension
         
-        logger.info(f"Initialized VectorService with index: {self.index_name}, dimension: {self.target_dimension}")
+        logger.info(f"✅ Initialized Enhanced VectorService with index: {self.index_name}, dimension: {self.target_dimension}")
 
-    def chunk_text(self, text: str, chunk_size: int = 800, overlap: int = 100) -> List[Dict[str, Any]]:
-        """Split text into overlapping chunks"""
-        words = text.split()
-        chunks = []
+    def chunk_legal_document(self, text: str, chunk_size: int = 500, overlap: int = 100) -> List[Dict[str, Any]]:
+        """
+        Legal document optimized chunking that preserves context and meaning
+        """
+        logger.info(f"📄 Legal document chunking: {len(text)} characters")
         
-        for i in range(0, len(words), chunk_size - overlap):
-            chunk_words = words[i:i + chunk_size]
-            chunk_text = ' '.join(chunk_words)
-            
-            # Create unique ID for this chunk
-            chunk_id = hashlib.md5(f"{chunk_text[:100]}{i}".encode()).hexdigest()
-            
-            chunks.append({
-                "id": chunk_id,
-                "text": chunk_text,
-                "chunk_index": i // (chunk_size - overlap),
-                "word_count": len(chunk_words),
-                "start_word": i,
-                "end_word": min(i + chunk_size, len(words))
-            })
-            
-            if i + chunk_size >= len(words):
+        # Split by legal sections first
+        section_patterns = [
+            r'\n\d+\.\s+[A-Z][^\.]*\n',  # Numbered sections like "1. POSITION"
+            r'\n[A-Z][A-Z\s]+:\s*\n',    # ALL CAPS headers like "CONFIDENTIALITY:"
+            r'\n\([a-z]\)\s+',           # (a) subsections
+            r'\n\([0-9]+\)\s+'           # (1) subsections
+        ]
+        
+        sections = []
+        current_text = text
+        
+        # Try to split by legal sections
+        for pattern in section_patterns:
+            matches = list(re.finditer(pattern, current_text))
+            if matches:
+                parts = re.split(pattern, current_text)
+                sections = [part.strip() for part in parts if part.strip() and len(part.strip()) > 20]
+                logger.info(f"📋 Split into {len(sections)} legal sections using pattern")
                 break
         
-        logger.info(f"Created {len(chunks)} chunks from text of {len(words)} words")
+        if not sections:
+            # Fall back to paragraph splitting
+            paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
+            sections = [p for p in paragraphs if len(p) > 50]  # Only substantial paragraphs
+            logger.info(f"📋 Split into {len(sections)} paragraphs (fallback)")
+        
+        if not sections:
+            # Ultimate fallback - sentence splitting
+            sentences = re.split(r'[.!?]+', text)
+            sections = [s.strip() for s in sentences if len(s.strip()) > 30]
+            logger.info(f"📋 Split into {len(sections)} sentences (ultimate fallback)")
+        
+        # Now chunk sections intelligently
+        chunks = []
+        current_chunk = ""
+        chunk_index = 0
+        
+        for section in sections:
+            words = section.split()
+            
+            # If adding this section would exceed chunk size
+            if len((current_chunk + " " + section).split()) > chunk_size and current_chunk:
+                # Save current chunk
+                chunks.append({
+                    "id": hashlib.md5(f"{current_chunk[:100]}{chunk_index}".encode()).hexdigest(),
+                    "text": current_chunk.strip(),
+                    "chunk_index": chunk_index,
+                    "word_count": len(current_chunk.split()),
+                    "section_type": "legal_section",
+                    "start_word": 0,  # Will be calculated later
+                    "end_word": len(current_chunk.split())
+                })
+                
+                # Start new chunk with overlap
+                if overlap > 0 and len(current_chunk.split()) > overlap:
+                    overlap_words = current_chunk.split()[-overlap:]
+                    current_chunk = " ".join(overlap_words) + " " + section
+                else:
+                    current_chunk = section
+                
+                chunk_index += 1
+            else:
+                # Add section to current chunk
+                current_chunk = (current_chunk + " " + section).strip()
+        
+        # Add final chunk
+        if current_chunk:
+            chunks.append({
+                "id": hashlib.md5(f"{current_chunk[:100]}{chunk_index}".encode()).hexdigest(),
+                "text": current_chunk.strip(),
+                "chunk_index": chunk_index,
+                "word_count": len(current_chunk.split()),
+                "section_type": "legal_section",
+                "start_word": 0,
+                "end_word": len(current_chunk.split())
+            })
+        
+        # ✅ ENSURE MINIMUM 3 CHUNKS for legal documents
+        if len(chunks) < 3 and len(text.split()) > 100:
+            logger.info("📝 Forcing minimum 3 chunks for legal document")
+            # Re-chunk with smaller size
+            return self._force_minimum_chunks(text, 3)
+        
+        logger.info(f"✅ Legal chunking completed: {len(chunks)} chunks created")
         return chunks
+
+    def _force_minimum_chunks(self, text: str, min_chunks: int = 3) -> List[Dict[str, Any]]:
+        """Force creation of minimum chunks"""
+        words = text.split()
+        total_words = len(words)
+        chunk_size = max(50, total_words // min_chunks)
+        
+        chunks = []
+        for i in range(0, total_words, chunk_size):
+            chunk_words = words[i:i + chunk_size]
+            if len(chunk_words) < 10:
+                continue
+                
+            chunk_text = ' '.join(chunk_words)
+            chunks.append({
+                "id": hashlib.md5(f"{chunk_text[:100]}{i}".encode()).hexdigest(),
+                "text": chunk_text,
+                "chunk_index": len(chunks),
+                "word_count": len(chunk_words),
+                "section_type": "forced_chunk",
+                "start_word": i,
+                "end_word": i + len(chunk_words)
+            })
+            
+            if len(chunks) >= min_chunks:
+                break
+        
+        return chunks
+
+    def chunk_text(self, text: str, chunk_size: int = 500, overlap: int = 100) -> List[Dict[str, Any]]:
+        """
+        Enhanced text chunking - delegates to legal document chunking
+        """
+        return self.chunk_legal_document(text, chunk_size, overlap)
 
     def create_embeddings(self, texts: List[str]) -> np.ndarray:
         """Create embeddings with exact dimension matching"""
@@ -85,7 +185,7 @@ class VectorService:
             
             logger.debug(f"Final embeddings shape: {embeddings.shape}")
             return embeddings
-        
+            
         except Exception as e:
             logger.error(f"Failed to create embeddings: {str(e)}")
             raise
@@ -103,26 +203,27 @@ class VectorService:
             chunk_texts = [chunk["text"] for chunk in chunks]
             embeddings = self.create_embeddings(chunk_texts)
             
-            logger.info(f"Generated embeddings shape: {embeddings.shape} for {len(chunks)} chunks")
-            logger.info(f"🔧 STORING DOCUMENT: {document_id}")
+            logger.info(f"🔧 STORING ENHANCED LEGAL DOCUMENT: {document_id}")
+            logger.info(f"📊 Generated embeddings shape: {embeddings.shape} for {len(chunks)} chunks")
             
             for i, chunk in enumerate(chunks):
                 # Prepare metadata (Pinecone has metadata size limits)
                 chunk_metadata = {
-                    "document_id": document_id,  # ✅ CRITICAL: This is the key for retrieval
+                    "document_id": document_id,
                     "chunk_index": chunk["chunk_index"],
                     "text": chunk["text"][:1000],  # Limit to 1000 chars for metadata
                     "word_count": chunk["word_count"],
                     "start_word": chunk.get("start_word", 0),
                     "end_word": chunk.get("end_word", 0),
+                    "section_type": chunk.get("section_type", "standard"),
                     "created_at": datetime.now().isoformat()
                 }
                 
                 # Add additional metadata if provided
                 if metadata:
                     for key, value in metadata.items():
-                        if key not in chunk_metadata:  # Don't override existing keys
-                            chunk_metadata[key] = str(value)[:500]  # Limit metadata values
+                        if key not in chunk_metadata:
+                            chunk_metadata[key] = str(value)[:500]
                 
                 # Verify vector dimension before adding
                 vector_values = embeddings[i].tolist()
@@ -130,17 +231,14 @@ class VectorService:
                     raise ValueError(f"Vector dimension {len(vector_values)} doesn't match target {self.target_dimension}")
                 
                 vector_id = f"{document_id}_{chunk['id']}"
-                
                 vectors_to_upsert.append({
                     "id": vector_id,
                     "values": vector_values,
                     "metadata": chunk_metadata
                 })
                 
-                # ✅ ENHANCED LOGGING: Log each vector being stored
-                logger.info(f"📦 Preparing vector {i+1}/{len(chunks)}: {vector_id}")
-                logger.debug(f"   Metadata: document_id='{document_id}', chunk_index={chunk['chunk_index']}")
-            
+                logger.info(f"📦 Prepared vector {i+1}/{len(chunks)}: {vector_id}")
+
             # Upsert in batches to avoid rate limits
             batch_size = 100
             total_batches = (len(vectors_to_upsert) + batch_size - 1) // batch_size
@@ -153,84 +251,53 @@ class VectorService:
                 
                 upsert_response = self.index.upsert(
                     vectors=batch,
-                    namespace=""  # ✅ EXPLICIT: Use empty string namespace consistently
+                    namespace=""
                 )
                 
                 logger.info(f"✅ Batch {current_batch} upserted successfully: {upsert_response}")
+
+            # Wait for index to propagate
+            logger.info("⏳ Waiting 5 seconds for index propagation...")
+            time.sleep(5)
             
-            # ✅ CRITICAL: Wait for index to propagate
-            logger.info("⏳ Waiting 3 seconds for index propagation...")
-            time.sleep(3)
-            
-            # ✅ VERIFICATION: Immediately verify the stored data
+            # Verify the stored data
             await self._verify_stored_document(document_id, len(chunks))
             
-            logger.info(f"🎉 Successfully stored {len(chunks)} chunks for document {document_id}")
+            logger.info(f"🎉 Successfully stored {len(chunks)} chunks for enhanced legal document {document_id}")
             return True
             
         except Exception as e:
-            logger.error(f"❌ Failed to store chunks: {str(e)}")
+            logger.error(f"❌ Failed to store enhanced legal document: {str(e)}")
             return False
 
-    async def _verify_stored_document(self, document_id: str, expected_chunks: int):
-        """Verify that document was actually stored in Pinecone"""
-        try:
-            logger.info(f"🔍 Verifying stored document: {document_id}")
-            
-            # Try to find the document immediately after storage
-            verification_response = self.index.query(
-                vector=[0.0] * self.target_dimension,  # Dummy vector
-                filter={"document_id": {"$eq": document_id}},
-                top_k=expected_chunks + 5,  # Get all chunks plus some buffer
-                include_metadata=True,
-                namespace=""
-            )
-            
-            found_chunks = len(verification_response.matches)
-            logger.info(f"✅ Verification: Found {found_chunks}/{expected_chunks} chunks for document {document_id}")
-            
-            if found_chunks == 0:
-                logger.error(f"❌ CRITICAL: No chunks found immediately after storage for document {document_id}")
-                # Log some sample vector IDs for debugging
-                logger.error(f"Expected to find vectors with document_id metadata = '{document_id}'")
-            elif found_chunks < expected_chunks:
-                logger.warning(f"⚠️ Only {found_chunks}/{expected_chunks} chunks found - possible indexing delay")
-            else:
-                logger.info(f"🎉 All chunks verified successfully for document {document_id}")
-                
-        except Exception as e:
-            logger.error(f"❌ Verification failed: {str(e)}")
-
-    async def retrieve_relevant_chunks(self, query: str, document_id: str, top_k: int = 5) -> List[Dict[str, Any]]:
-        """Retrieve most relevant chunks for a query with enhanced debugging"""
+    async def retrieve_relevant_chunks(self, query: str, document_id: str, top_k: int = 10) -> List[Dict[str, Any]]:
+        """Enhanced chunk retrieval optimized for legal documents"""
         try:
             if not query.strip():
                 logger.warning("Empty query provided")
                 return []
-            
+
             # Create query embedding
             query_embedding = self.create_embeddings([query])[0]
             
             # Verify query embedding dimension
             if len(query_embedding) != self.target_dimension:
                 raise ValueError(f"Query embedding dimension {len(query_embedding)} doesn't match target {self.target_dimension}")
+
+            logger.info(f"🔍 ENHANCED LEGAL DOCUMENT SEARCH:")
+            logger.info(f" Query: '{query[:50]}...'")
+            logger.info(f" Document ID: '{document_id}'")
+            logger.info(f" Top K: {top_k}")
+
+            # Enhanced search strategy for legal documents
+            search_results = await self._search_legal_document(query_embedding, document_id, top_k)
             
-            logger.info(f"🔍 SEARCHING FOR CHUNKS:")
-            logger.info(f"   Query: '{query[:50]}...'")
-            logger.info(f"   Document ID: '{document_id}'")
-            logger.info(f"   Top K: {top_k}")
-            logger.info(f"   Namespace: '' (empty string)")
-            
-            # ✅ ENHANCED: Try multiple search strategies
-            search_results = await self._search_with_fallback(query_embedding, document_id, top_k)
-            
-            logger.info(f"📊 Pinecone returned {len(search_results.matches)} matches")
+            logger.info(f"📊 Pinecone returned {len(search_results.matches)} matches for legal document")
             
             if len(search_results.matches) == 0:
-                # ✅ DEBUGGING: Try to understand why no matches
                 await self._debug_no_matches(document_id, query_embedding, top_k)
                 return []
-            
+
             relevant_chunks = []
             for match in search_results.matches:
                 chunk_data = {
@@ -240,23 +307,55 @@ class VectorService:
                     "chunk_index": match.metadata.get("chunk_index", 0),
                     "word_count": match.metadata.get("word_count", 0),
                     "start_word": match.metadata.get("start_word", 0),
-                    "end_word": match.metadata.get("end_word", 0)
+                    "end_word": match.metadata.get("end_word", 0),
+                    "section_type": match.metadata.get("section_type", "standard")
                 }
                 relevant_chunks.append(chunk_data)
-                logger.debug(f"   Match: {match.id}, Score: {match.score:.4f}, Chunk: {chunk_data['chunk_index']}")
-            
+                logger.debug(f" Match: {match.id}, Score: {match.score:.4f}, Type: {chunk_data['section_type']}")
+
             # Sort by chunk index to maintain document flow
             relevant_chunks.sort(key=lambda x: x["chunk_index"])
             
-            logger.info(f"✅ Retrieved {len(relevant_chunks)} relevant chunks")
-            return relevant_chunks
-            
+            # Ensure we get good coverage for legal documents
+            if len(relevant_chunks) < 3:
+                logger.info("📝 Legal document: Ensuring minimum coverage...")
+                additional_results = await self._get_all_document_chunks(document_id, exclude_ids=[c["id"] for c in relevant_chunks])
+                relevant_chunks.extend(additional_results[:5-len(relevant_chunks)])
+
+            logger.info(f"✅ Retrieved {len(relevant_chunks)} relevant chunks from legal document")
+            return relevant_chunks[:top_k]
+
         except Exception as e:
-            logger.error(f"❌ Failed to retrieve chunks: {str(e)}")
+            logger.error(f"❌ Failed to retrieve chunks from legal document: {str(e)}")
             return []
 
+    async def _search_legal_document(self, query_embedding, document_id: str, top_k: int):
+        """Specialized search for legal documents"""
+        
+        # Strategy 1: Direct search with higher top_k for better coverage
+        try:
+            logger.info("🎯 Legal Document Strategy: Enhanced coverage search")
+            search_results = self.index.query(
+                vector=query_embedding.tolist(),
+                filter={"document_id": {"$eq": document_id}},
+                top_k=min(top_k * 2, 50),  # Get more results for legal docs
+                include_metadata=True,
+                include_values=False,
+                namespace=""
+            )
+            
+            if search_results.matches:
+                logger.info(f"✅ Legal document search succeeded: {len(search_results.matches)} matches")
+                return search_results
+                
+        except Exception as e:
+            logger.warning(f"⚠️ Legal document search failed: {str(e)}")
+
+        # Fallback to standard search
+        return await self._search_with_fallback(query_embedding, document_id, top_k)
+
     async def _search_with_fallback(self, query_embedding, document_id: str, top_k: int):
-        """Try multiple search strategies if first one fails"""
+        """Fallback search with multiple strategies"""
         
         # Strategy 1: Exact filter match
         try:
@@ -264,50 +363,118 @@ class VectorService:
             search_results = self.index.query(
                 vector=query_embedding.tolist(),
                 filter={"document_id": {"$eq": document_id}},
-                top_k=top_k,
+                top_k=top_k * 2,
                 include_metadata=True,
                 include_values=False,
                 namespace=""
             )
+            
             if search_results.matches:
                 logger.info(f"✅ Strategy 1 succeeded: {len(search_results.matches)} matches")
                 return search_results
+                
         except Exception as e:
             logger.warning(f"⚠️ Strategy 1 failed: {str(e)}")
-        
-        # Strategy 2: Try without filter to see if any vectors exist
+
+        # Strategy 2: Broader search without filter, then manual filtering
         try:
-            logger.info("🎯 Strategy 2: Search without filter")
+            logger.info("🎯 Strategy 2: Broad search with manual filtering")
             search_results = self.index.query(
                 vector=query_embedding.tolist(),
-                top_k=top_k,
+                top_k=top_k * 3,
                 include_metadata=True,
                 include_values=False,
                 namespace=""
             )
-            logger.info(f"📊 Strategy 2: Found {len(search_results.matches)} total vectors in index")
             
-            # Filter manually for our document
+            # Filter manually
             filtered_matches = []
             for match in search_results.matches:
                 if match.metadata and match.metadata.get("document_id") == document_id:
                     filtered_matches.append(match)
             
             if filtered_matches:
-                logger.info(f"✅ Strategy 2: Found {len(filtered_matches)} matches for our document")
+                logger.info(f"✅ Strategy 2: Found {len(filtered_matches)} matches")
                 search_results.matches = filtered_matches
                 return search_results
-            
+                
         except Exception as e:
             logger.warning(f"⚠️ Strategy 2 failed: {str(e)}")
-        
+
         # Return empty results
         from types import SimpleNamespace
         return SimpleNamespace(matches=[])
 
+    async def _get_all_document_chunks(self, document_id: str, exclude_ids: List[str] = None) -> List[Dict[str, Any]]:
+        """Get all chunks for a document (fallback method)"""
+        try:
+            exclude_ids = exclude_ids or []
+            
+            # Use a dummy vector to get all chunks for this document
+            dummy_vector = [0.1] * self.target_dimension
+            
+            all_chunks_response = self.index.query(
+                vector=dummy_vector,
+                filter={"document_id": {"$eq": document_id}},
+                top_k=50,
+                include_metadata=True,
+                namespace=""
+            )
+            
+            additional_chunks = []
+            for match in all_chunks_response.matches:
+                if match.id not in exclude_ids:
+                    chunk_data = {
+                        "id": match.id,
+                        "text": match.metadata.get("text", ""),
+                        "score": 0.3,  # Lower score since not similarity-based
+                        "chunk_index": match.metadata.get("chunk_index", 0),
+                        "word_count": match.metadata.get("word_count", 0),
+                        "start_word": match.metadata.get("start_word", 0),
+                        "end_word": match.metadata.get("end_word", 0)
+                    }
+                    additional_chunks.append(chunk_data)
+            
+            # Sort by chunk index
+            additional_chunks.sort(key=lambda x: x["chunk_index"])
+            logger.info(f"📝 Found {len(additional_chunks)} additional chunks for legal document")
+            
+            return additional_chunks
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to get additional chunks: {str(e)}")
+            return []
+
+    async def _verify_stored_document(self, document_id: str, expected_chunks: int):
+        """Verify that document was actually stored in Pinecone"""
+        try:
+            logger.info(f"🔍 Verifying stored legal document: {document_id}")
+            
+            # Try to find the document immediately after storage
+            verification_response = self.index.query(
+                vector=[0.0] * self.target_dimension,
+                filter={"document_id": {"$eq": document_id}},
+                top_k=expected_chunks + 5,
+                include_metadata=True,
+                namespace=""
+            )
+            
+            found_chunks = len(verification_response.matches)
+            logger.info(f"✅ Verification: Found {found_chunks}/{expected_chunks} chunks for legal document {document_id}")
+            
+            if found_chunks == 0:
+                logger.error(f"❌ CRITICAL: No chunks found immediately after storage for legal document {document_id}")
+            elif found_chunks < expected_chunks:
+                logger.warning(f"⚠️ Only {found_chunks}/{expected_chunks} chunks found - possible indexing delay")
+            else:
+                logger.info(f"🎉 All chunks verified successfully for legal document {document_id}")
+                
+        except Exception as e:
+            logger.error(f"❌ Verification failed: {str(e)}")
+
     async def _debug_no_matches(self, document_id: str, query_embedding, top_k: int):
         """Debug why no matches were found"""
-        logger.error(f"🐛 DEBUGGING NO MATCHES for document_id: {document_id}")
+        logger.error(f"🐛 DEBUGGING NO MATCHES for legal document_id: {document_id}")
         
         try:
             # Check if ANY vectors exist in the index
@@ -324,19 +491,7 @@ class VectorService:
                 logger.error("🔍 Sample vectors in index:")
                 for i, match in enumerate(total_vectors.matches[:3]):
                     doc_id = match.metadata.get("document_id", "NO_DOCUMENT_ID") if match.metadata else "NO_METADATA"
-                    logger.error(f"   Vector {i+1}: {match.id}, document_id: '{doc_id}'")
-                
-                # Check for similar document IDs
-                similar_docs = []
-                for match in total_vectors.matches:
-                    if match.metadata and "document_id" in match.metadata:
-                        stored_doc_id = match.metadata["document_id"]
-                        if document_id in stored_doc_id or stored_doc_id in document_id:
-                            similar_docs.append(stored_doc_id)
-                
-                if similar_docs:
-                    logger.error(f"🔍 Found similar document IDs: {set(similar_docs)}")
-                    logger.error(f"🔍 Searching for: '{document_id}'")
+                    logger.error(f" Vector {i+1}: {match.id}, document_id: '{doc_id}'")
             else:
                 logger.error("❌ NO VECTORS FOUND IN INDEX AT ALL!")
                 
@@ -344,46 +499,31 @@ class VectorService:
             logger.error(f"❌ Debug failed: {str(debug_error)}")
 
     async def get_document_info(self, document_id: str) -> Dict[str, Any]:
-        """Get information about a stored document with enhanced debugging"""
+        """Get information about a stored legal document"""
         try:
-            logger.info(f"📋 Getting document info for: {document_id}")
+            logger.info(f"📋 Getting legal document info for: {document_id}")
             
             # Try to find any vectors that match the document_id pattern
             search_response = self.index.query(
-                vector=[0.0] * self.target_dimension,  # Dummy vector with correct dimension
+                vector=[0.0] * self.target_dimension,
                 filter={"document_id": {"$eq": document_id}},
-                top_k=50,  # Get more chunks to count them accurately
+                top_k=100,
                 include_metadata=True,
                 namespace=""
             )
             
             if not search_response.matches:
-                logger.warning(f"⚠️ No matches found for document_id: {document_id}")
-                
-                # Try to find ANY vectors to see what's in the index
-                any_vectors = self.index.query(
-                    vector=[0.0] * self.target_dimension,
-                    top_k=5,
-                    include_metadata=True,
-                    namespace=""
-                )
-                
-                if any_vectors.matches:
-                    logger.info("🔍 Sample document IDs in index:")
-                    for match in any_vectors.matches:
-                        if match.metadata and "document_id" in match.metadata:
-                            logger.info(f"   Found: '{match.metadata['document_id']}'")
-                
+                logger.warning(f"⚠️ No matches found for legal document_id: {document_id}")
                 return {
                     "document_id": document_id,
                     "exists": False,
                     "chunk_count": 0
                 }
-            
+
             # Get total index stats
             index_stats = self.index.describe_index_stats()
             
-            logger.info(f"✅ Found {len(search_response.matches)} chunks for document {document_id}")
+            logger.info(f"✅ Found {len(search_response.matches)} chunks for legal document {document_id}")
             
             return {
                 "document_id": document_id,
@@ -391,11 +531,11 @@ class VectorService:
                 "chunk_count": len(search_response.matches),
                 "index_total_vectors": index_stats.total_vector_count,
                 "index_dimension": self.target_dimension,
-                "created_at": search_response.matches[0].metadata.get("created_at")
+                "created_at": search_response.matches[0].metadata.get("created_at") if search_response.matches else None
             }
             
         except Exception as e:
-            logger.error(f"❌ Failed to get document info: {str(e)}")
+            logger.error(f"❌ Failed to get legal document info: {str(e)}")
             return {
                 "document_id": document_id,
                 "exists": False,
@@ -403,21 +543,21 @@ class VectorService:
             }
 
     async def delete_document(self, document_id: str) -> bool:
-        """Delete all chunks for a document"""
+        """Delete all chunks for a legal document"""
         try:
             # First, get all vector IDs for this document
             search_response = self.index.query(
-                vector=[0.0] * self.target_dimension,  # Dummy vector with correct dimension
+                vector=[0.0] * self.target_dimension,
                 filter={"document_id": {"$eq": document_id}},
-                top_k=10000,  # Get all chunks
+                top_k=10000,
                 include_metadata=False,
                 namespace=""
             )
             
             if not search_response.matches:
-                logger.warning(f"No chunks found for document {document_id}")
+                logger.warning(f"No chunks found for legal document {document_id}")
                 return True
-            
+
             # Extract vector IDs
             vector_ids = [match.id for match in search_response.matches]
             
@@ -426,13 +566,13 @@ class VectorService:
             for i in range(0, len(vector_ids), batch_size):
                 batch_ids = vector_ids[i:i + batch_size]
                 self.index.delete(ids=batch_ids, namespace="")
-                logger.info(f"Deleted batch of {len(batch_ids)} vectors")
-            
-            logger.info(f"Successfully deleted {len(vector_ids)} chunks for document {document_id}")
+                logger.info(f"Deleted batch of {len(batch_ids)} vectors from legal document")
+
+            logger.info(f"Successfully deleted {len(vector_ids)} chunks for legal document {document_id}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to delete document: {str(e)}")
+            logger.error(f"Failed to delete legal document: {str(e)}")
             return False
 
     def check_index_info(self) -> Dict[str, Any]:
@@ -452,10 +592,11 @@ class VectorService:
                 "index_name": self.index_name,
                 "total_vector_count": stats.total_vector_count,
                 "dimension": index_info.dimension if index_info else "unknown",
-                "metric": index_info.metric if index_info else "unknown",
+                "metric": index_info.metric if index_info else "unknown", 
                 "status": "ready" if index_info and index_info.status.ready else "not ready",
                 "namespaces": stats.namespaces,
-                "target_dimension": self.target_dimension
+                "target_dimension": self.target_dimension,
+                "optimized_for": "legal_documents"
             }
             
         except Exception as e:
@@ -467,10 +608,10 @@ class VectorService:
             }
 
     async def health_check(self) -> Dict[str, Any]:
-        """Perform health check on vector service"""
+        """Health check for enhanced legal document vector service"""
         try:
             # Test basic index operations
-            test_embedding = self.create_embeddings(["health check test"])
+            test_embedding = self.create_embeddings(["health check test legal document"])
             
             # Try a simple query
             test_query = self.index.query(
@@ -485,16 +626,24 @@ class VectorService:
                 "index_accessible": True,
                 "embedding_model_loaded": True,
                 "target_dimension": self.target_dimension,
+                "optimized_for": "legal_documents",
+                "features": [
+                    "Legal document chunking",
+                    "Section-aware splitting",
+                    "Enhanced retrieval strategies",
+                    "Context preservation"
+                ],
                 "timestamp": datetime.now().isoformat()
             }
             
         except Exception as e:
-            logger.error(f"Vector service health check failed: {str(e)}")
+            logger.error(f"Enhanced legal vector service health check failed: {str(e)}")
             return {
                 "status": "unhealthy",
                 "error": str(e),
+                "optimized_for": "legal_documents",
                 "timestamp": datetime.now().isoformat()
             }
 
-# Global vector service instance
+# Global enhanced vector service instance
 vector_service = VectorService()

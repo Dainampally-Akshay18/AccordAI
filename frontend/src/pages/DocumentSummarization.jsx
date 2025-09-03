@@ -1,162 +1,136 @@
-// DocumentSummarization.jsx - Comprehensive Document Summary
-import React, { useState } from 'react';
+// DocumentSummarization.jsx - Enhanced with Better Error Handling
+import React, { useState, useEffect } from 'react';
 import { runDocumentSummary } from '../services/api';
 
 const DocumentSummarization = ({ documentInfo }) => {
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState('');
+  const [debugInfo, setDebugInfo] = useState('');
 
   const runAnalysis = async () => {
-    if (!documentInfo?.document_id) return;
+    if (!documentInfo?.document_id) {
+      setError('No document ID available for analysis.');
+      return;
+    }
     
     setLoading(true);
     setError('');
+    setDebugInfo('Analyzing document content with enhanced Pinecone...');
     
     try {
+      console.log('📄 Starting document summary for:', documentInfo.document_id);
       const response = await runDocumentSummary(documentInfo.document_id);
+      
       if (response.success) {
+        console.log('✅ Document summary successful:', response.data);
         setAnalysis(response.data);
+        setDebugInfo(`Summary generated: ${response.data.relevant_chunks?.length || 0} chunks analyzed with Pinecone Enhanced`);
       } else {
-        setError(response.error);
+        console.error('❌ Document summary failed:', response.error);
+        setError(response.error || 'Document summary failed');
+        setDebugInfo('Summary generation failed');
       }
     } catch (err) {
-      setError('Analysis failed. Please try again.');
+      console.error('❌ Document summary error:', err);
+      setError('Summary generation failed. Please try again.');
+      setDebugInfo(`Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
+  // Auto-run analysis when component mounts
+  useEffect(() => {
+    if (documentInfo?.document_id && !analysis && !loading) {
+      runAnalysis();
+    }
+  }, [documentInfo?.document_id]);
+
   return (
     <div className="document-summary-page">
       <div className="page-header">
-        <h2>📄 Document Summarization</h2>
-        <p>Comprehensive overview of your contract's key elements</p>
+        <h2>📄 Document Summary</h2>
+        <p>Key insights and important information from your contract</p>
         
         <button 
           onClick={runAnalysis}
-          disabled={loading}
+          disabled={loading || !documentInfo?.document_id}
           className="analyze-btn"
         >
           {loading ? (
             <>
               <span className="spinner"></span>
-              Generating Summary...
+              Analyzing Document...
             </>
           ) : (
             <>
               <span>📋</span>
-              Generate Document Summary
+              {analysis ? 'Refresh Summary' : 'Generate Summary'}
             </>
           )}
         </button>
       </div>
 
-      {error && (
-        <div className="error-message">
-          <span className="error-icon">⚠️</span>
-          <p>{error}</p>
+      {debugInfo && (
+        <div className="debug-info">
+          <small>Status: {debugInfo}</small>
         </div>
       )}
 
-      {analysis && (
+      {error && (
+        <div className="error-message">
+          <span className="error-icon">⚠️</span>
+          <div>
+            <strong>Summary Failed:</strong>
+            <p>{error}</p>
+          </div>
+        </div>
+      )}
+
+      {analysis && analysis.analysis && (
         <div className="summary-results">
+          {/* Contract Type Header */}
+          {analysis.analysis.contract_type && (
+            <div className="contract-type-header">
+              <h3>📋 {analysis.analysis.contract_type}</h3>
+            </div>
+          )}
+
           {/* Executive Summary */}
           {analysis.analysis.summary && (
-            <div className="executive-summary">
-              <h3>📋 Executive Summary</h3>
+            <div className="executive-summary-clean">
+              <h4>📝 Summary</h4>
               <p>{analysis.analysis.summary}</p>
             </div>
           )}
 
-          {/* Document Overview */}
-          {analysis.analysis.overview && (
-            <div className="overview-section">
-              <h3>📖 Document Overview</h3>
-              <div className="overview-grid">
-                {Object.entries(analysis.analysis.overview).map(([key, value]) => (
-                  <div key={key} className="overview-item">
-                    <span className="overview-label">{key.replace('_', ' ').toUpperCase()}:</span>
-                    <span className="overview-value">
-                      {Array.isArray(value) ? value.join(', ') : value}
-                    </span>
+          {/* Key Points */}
+          {analysis.analysis.key_points && analysis.analysis.key_points.length > 0 && (
+            <div className="key-points-clean">
+              <h4>🔑 Key Points</h4>
+              <div className="points-list-clean">
+                {analysis.analysis.key_points.map((point, index) => (
+                  <div key={index} className="point-item-clean">
+                    <span className="point-bullet">•</span>
+                    <span className="point-text">{point}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Key Terms */}
-          {analysis.analysis.key_terms && (
-            <div className="terms-section">
-              <h3>🔑 Key Terms & Conditions</h3>
-              <div className="terms-grid">
-                {analysis.analysis.key_terms.map((term, index) => (
-                  <div key={index} className="term-card">
-                    <h4>{term.term}</h4>
-                    <p>{term.description}</p>
-                  </div>
-                ))}
-              </div>
+          {/* Backend info */}
+          <div className="backend-info">
+            <h4>🔧 Analysis Details</h4>
+            <div className="backend-stats">
+              <span>Powered by: Pinecone Enhanced Vector Search</span>
+              <span>•</span>
+              <span>Chunks: {analysis.relevant_chunks?.length || 0}</span>
+              <span>•</span>
+              <span>Analysis Time: {new Date().toLocaleTimeString()}</span>
             </div>
-          )}
-
-          {/* Financial Terms */}
-          {analysis.analysis.financial_terms && (
-            <div className="financial-section">
-              <h3>💰 Financial Terms</h3>
-              <div className="financial-grid">
-                {Object.entries(analysis.analysis.financial_terms).map(([key, value]) => (
-                  <div key={key} className="financial-item">
-                    <span className="financial-label">{key.replace('_', ' ').toUpperCase()}:</span>
-                    <span className="financial-value">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Important Dates */}
-          {analysis.analysis.important_dates && (
-            <div className="dates-section">
-              <h3>📅 Important Dates</h3>
-              <div className="dates-timeline">
-                {analysis.analysis.important_dates.map((dateItem, index) => (
-                  <div key={index} className={`date-item ${dateItem.importance?.toLowerCase()}`}>
-                    <div className="date-marker"></div>
-                    <div className="date-content">
-                      <div className="date-value">{dateItem.date}</div>
-                      <div className="date-description">{dateItem.event}</div>
-                      {dateItem.importance && (
-                        <span className={`importance-badge ${dateItem.importance.toLowerCase()}`}>
-                          {dateItem.importance}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Party Obligations */}
-          {analysis.analysis.obligations && (
-            <div className="obligations-section">
-              <h3>📋 Party Obligations</h3>
-              <div className="obligations-grid">
-                {Object.entries(analysis.analysis.obligations).map(([party, obligations]) => (
-                  <div key={party} className="obligations-party">
-                    <h4>{party.replace('_', ' ').toUpperCase()} Obligations:</h4>
-                    <ul>
-                      {obligations.map((obligation, index) => (
-                        <li key={index}>{obligation}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       )}
     </div>

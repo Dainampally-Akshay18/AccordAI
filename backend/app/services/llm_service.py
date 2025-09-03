@@ -1,204 +1,243 @@
-# llm_service.py - Updated with Current Groq Models
+# llm_service.py - Enhanced with Llama 3.3 70B and Better Legal Prompts
 import json
 import httpx
 import logging
+import asyncio
 from typing import Dict, Any, Optional
 from langchain_groq import ChatGroq
 from langchain.schema import HumanMessage, SystemMessage
 from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-class LLMService:
+class EnhancedLLMService:
     def __init__(self):
         self.groq_api_key = settings.GROQ_API_KEY
-        
         if not self.groq_api_key:
             logger.warning("GROQ_API_KEY not found in config settings")
             self.groq_llm = None
         else:
-            # Initialize Groq with LangChain
             try:
+                # ✅ UPGRADED TO LLAMA 3.3 70B for much better legal analysis
                 self.groq_llm = ChatGroq(
                     api_key=self.groq_api_key,
-                    model="llama-3.1-8b-instant",  # ✅ UPDATED: New current model
-                    temperature=0.1,
-                    max_tokens=2000,
-                    timeout=30
+                    model="llama-3.3-70b-versatile",  # ✅ UPGRADED: 10x better than 8B
+                    temperature=0.1,     # Low for accuracy
+                    max_tokens=4000,     # More tokens for detailed analysis
+                    timeout=90           # More time for complex analysis
                 )
-                logger.info("Groq LLM initialized successfully with llama-3.1-8b-instant")
+                logger.info("✅ Enhanced Groq LLM initialized with llama-3.3-70b-versatile")
             except Exception as e:
-                logger.error(f"Failed to initialize Groq LLM: {str(e)}")
-                self.groq_llm = None
+                logger.error(f"Failed to initialize Enhanced Groq LLM: {str(e)}")
+                # Fallback to 8B model
+                try:
+                    self.groq_llm = ChatGroq(
+                        api_key=self.groq_api_key,
+                        model="llama-3.1-8b-instant",
+                        temperature=0.2,
+                        max_tokens=3000,
+                        timeout=45
+                    )
+                    logger.info("⚠️ Fallback to llama-3.1-8b-instant")
+                except Exception as fallback_error:
+                    logger.error(f"Fallback model also failed: {str(fallback_error)}")
+                    self.groq_llm = None
 
-    async def call_groq_with_langchain(self, prompt: str, system_message: Optional[str] = None) -> Dict[str, Any]:
-        """Call Groq LLM using LangChain"""
+    async def call_groq_enhanced(self, prompt: str, system_message: str = None) -> Dict[str, Any]:
+        """Enhanced Groq call with better error handling and legal optimization"""
         if not self.groq_llm:
-            raise ValueError("Groq LLM is not configured or initialized")
-        
-        messages = []
-        if system_message:
-            messages.append(SystemMessage(content=system_message))
-        messages.append(HumanMessage(content=prompt))
-        
-        try:
-            response = await self.groq_llm.ainvoke(messages)
-            try:
-                return json.loads(response.content)
-            except json.JSONDecodeError:
-                return {"result": response.content}
-        except Exception as e:
-            logger.error(f"Groq LangChain call failed: {str(e)}")
-            raise Exception(f"LLM call failed: {str(e)}")
+            raise ValueError("Enhanced Groq LLM is not configured or initialized")
 
-    async def call_groq_direct(self, prompt: str, model: str = "llama-3.1-8b-instant") -> Dict[str, Any]:
-        """Call Groq Model via direct API request"""
+        # ✅ ENHANCED SYSTEM MESSAGE FOR LEGAL ANALYSIS
+        if not system_message:
+            system_message = """You are a senior legal analyst with expertise in contract review, risk assessment, and legal document analysis. 
+            
+            Your responses must be:
+            - Accurate and based solely on the provided contract content
+            - Professional and legally sound
+            - Structured in the exact JSON format requested
+            - Detailed enough to be actionable
+            
+            Always analyze the specific contract terms and conditions provided to you."""
+
+        messages = [
+            SystemMessage(content=system_message),
+            HumanMessage(content=prompt)
+        ]
+
+        try:
+            logger.info(f"🤖 Calling enhanced LLM with {len(prompt)} character prompt")
+            
+            # ✅ ENHANCED CALL WITH RETRY LOGIC
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    response = await self.groq_llm.ainvoke(messages)
+                    
+                    # ✅ ENHANCED RESPONSE PROCESSING
+                    content = response.content.strip()
+                    logger.info(f"✅ LLM response received: {len(content)} characters")
+                    
+                    # Try to parse as JSON first
+                    if content.startswith('{') and content.endswith('}'):
+                        try:
+                            return json.loads(content)
+                        except json.JSONDecodeError:
+                            logger.warning("⚠️ Direct JSON parsing failed, extracting JSON")
+                    
+                    # Extract JSON from content
+                    import re
+                    json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                    if json_match:
+                        try:
+                            parsed_json = json.loads(json_match.group())
+                            logger.info("✅ Successfully extracted and parsed JSON")
+                            return parsed_json
+                        except json.JSONDecodeError:
+                            logger.warning("⚠️ Extracted JSON parsing failed")
+                    
+                    # Return structured response if JSON parsing fails
+                    return {
+                        "success": True,
+                        "content": content,
+                        "extracted": True
+                    }
+                    
+                except Exception as call_error:
+                    logger.warning(f"⚠️ LLM call attempt {attempt + 1} failed: {str(call_error)}")
+                    if attempt == max_retries - 1:
+                        raise call_error
+                    await asyncio.sleep(1)  # Brief pause before retry
+            
+        except Exception as e:
+            logger.error(f"❌ Enhanced Groq call failed: {str(e)}")
+            return {
+                "error": f"LLM analysis failed: {str(e)}",
+                "success": False
+            }
+
+    async def call_groq_direct_enhanced(self, prompt: str, system_message: str = None) -> Dict[str, Any]:
+        """Enhanced direct API call with better settings"""
         if not self.groq_api_key:
-            raise ValueError("Groq API key not configured in settings")
-        
+            raise ValueError("Groq API key not configured")
+
         async with httpx.AsyncClient() as client:
             try:
+                # ✅ ENHANCED PAYLOAD WITH BETTER SETTINGS
+                messages = []
+                if system_message:
+                    messages.append({"role": "system", "content": system_message})
+                messages.append({"role": "user", "content": prompt})
+
+                payload = {
+                    "model": "llama-3.3-70b-versatile",  # ✅ BETTER MODEL
+                    "messages": messages,
+                    "temperature": 0.1,      # ✅ LOWER for accuracy
+                    "max_tokens": 4000,      # ✅ MORE tokens
+                    "top_p": 0.9,           # ✅ FOCUSED responses
+                    "frequency_penalty": 0,  # ✅ NO repetition penalty
+                    "presence_penalty": 0    # ✅ NO presence penalty
+                }
+
                 response = await client.post(
                     "https://api.groq.com/openai/v1/chat/completions",
                     headers={
                         "Authorization": f"Bearer {self.groq_api_key}",
                         "Content-Type": "application/json"
                     },
-                    json={
-                        "model": model,  # ✅ UPDATED: Now uses current model by default
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.1,
-                        "max_tokens": 2000
-                    },
-                    timeout=30.0
+                    json=payload,
+                    timeout=90.0  # ✅ LONGER timeout for complex analysis
                 )
-                
+
                 if response.status_code != 200:
-                    raise Exception(f"Groq API error: {response.status_code} - {response.text}")
-                
+                    logger.error(f"❌ Groq API error: {response.status_code} - {response.text}")
+                    raise Exception(f"Groq API error: {response.status_code}")
+
                 result = response.json()
-                content = result["choices"][0]["message"]["content"]
+                content = result["choices"][0]["message"]["content"].strip()
                 
+                logger.info(f"✅ Direct API response received: {len(content)} characters")
+
+                # Enhanced JSON extraction
                 try:
                     return json.loads(content)
                 except json.JSONDecodeError:
-                    return {"result": content}
+                    # Extract JSON from content
+                    import re
+                    json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                    if json_match:
+                        try:
+                            return json.loads(json_match.group())
+                        except json.JSONDecodeError:
+                            pass
                     
+                    return {"result": content, "success": True}
+
             except Exception as e:
-                logger.error(f"Direct Groq API call failed: {str(e)}")
+                logger.error(f"❌ Enhanced direct API call failed: {str(e)}")
                 raise
 
-    async def call_groq(self, prompt: str, system_message: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Main Groq calling method with fallback logic
-        This is the method that analysis.py is calling
-        """
+    async def call_groq(self, prompt: str, system_message: str = None) -> Dict[str, Any]:
+        """Main enhanced Groq calling method"""
         try:
             # Try LangChain first
-            logger.info("Attempting Groq call via LangChain with llama-3.1-8b-instant")
-            return await self.call_groq_with_langchain(prompt, system_message)
+            return await self.call_groq_enhanced(prompt, system_message)
         except Exception as langchain_error:
-            logger.warning(f"Groq LangChain failed: {str(langchain_error)}")
+            logger.warning(f"⚠️ LangChain method failed: {str(langchain_error)}")
             try:
                 # Fallback to direct API
-                logger.info("Attempting Groq call via direct API with llama-3.1-8b-instant")
-                return await self.call_groq_direct(prompt, "llama-3.1-8b-instant")
+                return await self.call_groq_direct_enhanced(prompt, system_message)
             except Exception as direct_error:
-                logger.error(f"Direct Groq API also failed: {str(direct_error)}")
-                # Return error response instead of raising exception
+                logger.error(f"❌ All enhanced methods failed: {str(direct_error)}")
+                # Return structured error response
                 return {
-                    "error": f"All Groq methods failed: {str(direct_error)}",
-                    "analysis": f"Failed to analyze document: {str(direct_error)}",
-                    "type": "error"
+                    "error": "Analysis failed due to LLM service issues",
+                    "details": str(direct_error),
+                    "success": False,
+                    "fallback_analysis": {
+                        "risks": [],
+                        "summary": "Unable to analyze document due to technical issues",
+                        "emails": {
+                            "acceptance": "Analysis service temporarily unavailable",
+                            "rejection": "Analysis service temporarily unavailable"
+                        }
+                    }
                 }
 
-    async def call_llm_with_fallback(self, prompt: str, system_message: Optional[str] = None) -> Dict[str, Any]:
-        """Try Groq with LangChain, fallback to direct Groq API request."""
-        try:
-            return await self.call_groq_with_langchain(prompt, system_message)
-        except Exception as groq_error:
-            logger.warning(f"Groq LangChain failed, trying direct API: {str(groq_error)}")
-            try:
-                return await self.call_groq_direct(prompt, "llama-3.1-8b-instant")
-            except Exception as direct_error:
-                logger.error(f"Direct Groq API also failed: {str(direct_error)}")
-                return {"error": f"All Groq calls failed: {str(direct_error)}"}
-
-    def create_prompt_template(self, template_str: str) -> PromptTemplate:
-        """Create a LangChain prompt template."""
-        return PromptTemplate.from_template(template_str)
-
-    async def test_connection(self) -> Dict[str, Any]:
-        """Test Groq LLM connection and return status."""
-        test_prompt = "Reply with 'Connection successful' in JSON format: {\"status\": \"Connection successful\"}"
-        
-        results = {
-            "groq_langchain": "not_tested",
-            "groq_direct": "not_tested"
-        }
-        
-        # Test LangChain
-        if self.groq_llm:
-            try:
-                res = await self.call_groq_with_langchain(test_prompt)
-                results["groq_langchain"] = "success"
-            except Exception as e:
-                results["groq_langchain"] = f"failed: {str(e)}"
-        
-        # Test direct
-        if self.groq_api_key:
-            try:
-                res = await self.call_groq_direct(test_prompt, "llama-3.1-8b-instant")
-                results["groq_direct"] = "success"
-            except Exception as e:
-                results["groq_direct"] = f"failed: {str(e)}"
-        
-        return {
-            "status": "completed",
-            "test_results": results,
-            "primary_service": "groq",
-            "current_model": "llama-3.1-8b-instant"
-        }
-
-    async def health_check_groq(self) -> Dict[str, Any]:
-        """Test the main call_groq method"""
+    async def health_check(self) -> Dict[str, Any]:
+        """Health check for enhanced LLM service"""
         try:
             test_result = await self.call_groq("Test message: respond with JSON {\"status\": \"ok\"}")
             return {
                 "status": "healthy",
-                "method": "call_groq",
-                "model": "llama-3.1-8b-instant",
+                "method": "enhanced_call_groq",
+                "model": "llama-3.3-70b-versatile",
                 "response": test_result,
-                "timestamp": "2025-09-01T19:22:00"
+                "timestamp": "2025-09-03T11:43:00"
             }
         except Exception as e:
             return {
                 "status": "failed",
-                "method": "call_groq", 
-                "model": "llama-3.1-8b-instant",
+                "method": "enhanced_call_groq",
+                "model": "llama-3.3-70b-versatile",
                 "error": str(e),
-                "timestamp": "2025-09-01T19:22:00"
+                "timestamp": "2025-09-03T11:43:00"
             }
 
-    # ✅ ADDED: Method to get supported models
     def get_supported_models(self) -> Dict[str, Any]:
         """Get list of current supported Groq models"""
         return {
-            "current_models": [
-                "llama-3.1-8b-instant",      # Current fast model
-                "llama-3.3-70b-versatile",   # Current large model
-                "gemma2-9b-it",              # Alternative instruction model
-                "mixtral-8x7b-32768",        # Mixtral model
+            "current_model": "llama-3.3-70b-versatile",
+            "fallback_model": "llama-3.1-8b-instant", 
+            "features": [
+                "Enhanced legal analysis",
+                "Better accuracy for contract review",
+                "Improved JSON response parsing",
+                "Robust error handling with fallbacks"
             ],
-            "deprecated_models": [
-                "llama3-8b-8192",            # Deprecated 8/30/25
-                "llama3-70b-8192",           # Deprecated 8/30/25
-            ],
-            "default_model": "llama-3.1-8b-instant",
-            "updated_at": "2025-09-01"
+            "updated_at": "2025-09-03"
         }
 
-# Global LLM service instance
-llm_service = LLMService()
+# Global enhanced LLM service instance
+llm_service = EnhancedLLMService()
