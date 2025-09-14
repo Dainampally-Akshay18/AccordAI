@@ -11,12 +11,11 @@ class EnhancedLLMService {
             this.groqLlm = null;
         } else {
             try {
-                // ✅ UPGRADED TO LLAMA 3.3 70B for much better legal analysis (matching Python)
                 this.modelConfig = {
-                    model: "llama-3.3-70b-versatile", // ✅ UPGRADED: 10x better than 8B
-                    temperature: 0.1, // Low for accuracy
-                    max_tokens: 4000, // More tokens for detailed analysis
-                    timeout: 90000 // More time for complex analysis (90 seconds)
+                    model: "llama-3.3-70b-versatile",
+                    temperature: 0.1,
+                    max_tokens: 4000,
+                    timeout: 90000
                 };
                 
                 this.fallbackConfig = {
@@ -36,12 +35,123 @@ class EnhancedLLMService {
         }
     }
 
+    // ✅ CRITICAL FIX: Enhanced JSON parsing with multiple fallback strategies
+    safeJsonParse(text) {
+        if (!text || typeof text !== 'string') {
+            return null;
+        }
+
+        // Strategy 1: Direct JSON parse
+        try {
+            const parsed = JSON.parse(text.trim());
+            logger.legalSuccess("✅ Direct JSON parsing successful");
+            return parsed;
+        } catch (directError) {
+            logger.legalWarning("⚠️ Direct JSON parsing failed, trying extraction strategies");
+        }
+
+        // Strategy 2: Extract JSON block with code fence
+        try {
+            const codeBlockMatch = text.match(/``````/i);
+            if (codeBlockMatch) {
+                const parsed = JSON.parse(codeBlockMatch[1].trim());
+                logger.legalSuccess("✅ Code block JSON extraction successful");
+                return parsed;
+            }
+        } catch (codeBlockError) {
+            logger.legalWarning("⚠️ Code block JSON extraction failed");
+        }
+
+        // Strategy 3: Extract first complete JSON object
+        try {
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const jsonText = jsonMatch[0];
+                const parsed = JSON.parse(jsonText);
+                logger.legalSuccess("✅ JSON object extraction successful");
+                return parsed;
+            }
+        } catch (objectError) {
+            logger.legalWarning("⚠️ JSON object extraction failed");
+        }
+
+        // Strategy 4: Fix common JSON issues and retry
+        try {
+            let fixedText = text
+                // Remove any text before first {
+                .substring(text.indexOf('{'))
+                // Remove any text after last }
+                .substring(0, text.lastIndexOf('}') + 1)
+                // Fix common quote issues
+                .replace(/'/g, '"')
+                // Fix trailing commas
+                .replace(/,(\s*[}\]])/g, '$1')
+                // Fix unescaped quotes in strings
+                .replace(/(?<!\\)"/g, '\\"')
+                .replace(/\\"/g, '"');
+
+            const parsed = JSON.parse(fixedText);
+            logger.legalSuccess("✅ Fixed JSON parsing successful");
+            return parsed;
+        } catch (fixError) {
+            logger.legalWarning("⚠️ Fixed JSON parsing failed");
+        }
+
+        // Strategy 5: Lenient JSON-like parsing
+        try {
+            // Extract key-value pairs and construct JSON
+            const keyValuePairs = [];
+            
+            // Look for "key": "value" patterns
+            const patterns = [
+                /"([^"]+)":\s*"([^"]*)"/g,
+                /"([^"]+)":\s*(\d+\.?\d*)/g,
+                /"([^"]+)":\s*(true|false)/g,
+                /"([^"]+)":\s*\[([^\]]*)\]/g
+            ];
+
+            let result = {};
+            
+            for (const pattern of patterns) {
+                let match;
+                while ((match = pattern.exec(text)) !== null) {
+                    const key = match[1];
+                    let value = match[2];
+                    
+                    // Type conversion
+                    if (value === 'true') value = true;
+                    else if (value === 'false') value = false;
+                    else if (!isNaN(value) && value !== '') value = parseFloat(value);
+                    else if (match[0].includes('[')) {
+                        // Array handling
+                        try {
+                            value = JSON.parse(`[${value}]`);
+                        } catch {
+                            value = value.split(',').map(v => v.trim().replace(/['"]/g, ''));
+                        }
+                    }
+                    
+                    result[key] = value;
+                }
+            }
+
+            if (Object.keys(result).length > 0) {
+                logger.legalSuccess("✅ Lenient JSON parsing successful");
+                return result;
+            }
+        } catch (lenientError) {
+            logger.legalWarning("⚠️ Lenient JSON parsing failed");
+        }
+
+        logger.legalError("❌ All JSON parsing strategies failed");
+        return null;
+    }
+
     async callGroqEnhanced(prompt, systemMessage = null) {
         if (!this.groqLlm) {
             throw new Error("Enhanced Groq LLM is not configured or initialized");
         }
 
-        // ✅ ENHANCED SYSTEM MESSAGE FOR LEGAL ANALYSIS (matching Python)
         if (!systemMessage) {
             systemMessage = `You are a senior legal analyst with expertise in contract review, risk assessment, and legal document analysis.
 
@@ -50,6 +160,8 @@ Your responses must be:
 - Professional and legally sound
 - Structured in the exact JSON format requested
 - Detailed enough to be actionable
+
+CRITICAL: You MUST respond with valid JSON only. Do not include any text before or after the JSON object. Do not use markdown code blocks. Return raw JSON only.
 
 Always analyze the specific contract terms and conditions provided to you.`;
         }
@@ -60,9 +172,8 @@ Always analyze the specific contract terms and conditions provided to you.`;
         ];
 
         try {
-            logger.aiInfo(`Calling enhanced LLM with ${prompt.length} character prompt`);
+            logger.aiInfo(`🤖 Calling enhanced LLM with ${prompt.length} character prompt`);
 
-            // ✅ ENHANCED CALL WITH RETRY LOGIC (matching Python)
             const maxRetries = 3;
             
             for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -70,50 +181,43 @@ Always analyze the specific contract terms and conditions provided to you.`;
                     const response = await this._makeGroqRequest(messages, this.modelConfig);
                     const content = response.trim();
                     
-                    logger.aiInfo(`LLM response received: ${content.length} characters`);
+                    logger.aiInfo(`🤖 LLM response received: ${content.length} characters`);
 
-                    // Try to parse as JSON first (matching Python logic)
-                    if (content.startsWith('{') && content.endsWith('}')) {
-                        try {
-                            return JSON.parse(content);
-                        } catch (jsonError) {
-                            logger.legalWarning("Direct JSON parsing failed, extracting JSON");
-                            
-                            // Extract JSON from content (matching Python regex)
-                            const jsonMatch = content.match(/\{.*\}/s);
-                            if (jsonMatch) {
-                                try {
-                                    const parsedJson = JSON.parse(jsonMatch[0]);
-                                    logger.legalSuccess("Successfully extracted and parsed JSON");
-                                    return parsedJson;
-                                } catch (extractError) {
-                                    logger.legalWarning("Extracted JSON parsing failed");
-                                }
-                            }
+                    // ✅ CRITICAL FIX: Use enhanced JSON parsing
+                    const parsed = this.safeJsonParse(content);
+                    
+                    if (parsed) {
+                        logger.legalSuccess("✅ LLM response successfully parsed to JSON");
+                        return parsed;
+                    } else {
+                        logger.legalWarning(`⚠️ Attempt ${attempt + 1}: JSON parsing failed, raw response: ${content.substring(0, 200)}...`);
+                        
+                        if (attempt === maxRetries - 1) {
+                            // Create structured fallback response
+                            return {
+                                success: false,
+                                content: content,
+                                error: "JSON parsing failed after all attempts",
+                                raw_response: content.substring(0, 500)
+                            };
                         }
                     }
 
-                    // Return structured response if JSON parsing fails (matching Python)
-                    return {
-                        success: true,
-                        content: content,
-                        extracted: true
-                    };
-
                 } catch (callError) {
-                    logger.legalWarning(`LLM call attempt ${attempt + 1} failed: ${callError.message}`);
+                    logger.legalWarning(`⚠️ LLM call attempt ${attempt + 1} failed: ${callError.message}`);
                     if (attempt === maxRetries - 1) {
                         throw callError;
                     }
-                    await new Promise(resolve => setTimeout(resolve, 1000)); // Brief pause before retry
+                    await new Promise(resolve => setTimeout(resolve, 2000));
                 }
             }
 
         } catch (error) {
-            logger.legalError(`Enhanced Groq call failed: ${error.message}`);
+            logger.legalError(`❌ Enhanced Groq call failed: ${error.message}`);
             return {
                 error: `LLM analysis failed: ${error.message}`,
-                success: false
+                success: false,
+                fallback_required: true
             };
         }
     }
@@ -124,7 +228,6 @@ Always analyze the specific contract terms and conditions provided to you.`;
         }
 
         try {
-            // ✅ ENHANCED PAYLOAD WITH BETTER SETTINGS (matching Python)
             const messages = [];
             if (systemMessage) {
                 messages.push({ role: "system", content: systemMessage });
@@ -132,13 +235,13 @@ Always analyze the specific contract terms and conditions provided to you.`;
             messages.push({ role: "user", content: prompt });
 
             const payload = {
-                model: "llama-3.3-70b-versatile", // ✅ BETTER MODEL
+                model: "llama-3.3-70b-versatile",
                 messages: messages,
-                temperature: 0.1, // ✅ LOWER for accuracy
-                max_tokens: 4000, // ✅ MORE tokens
-                top_p: 0.9, // ✅ FOCUSED responses
-                frequency_penalty: 0, // ✅ NO repetition penalty
-                presence_penalty: 0 // ✅ NO presence penalty
+                temperature: 0.1,
+                max_tokens: 4000,
+                top_p: 0.9,
+                frequency_penalty: 0,
+                presence_penalty: 0
             };
 
             const response = await axios.post(
@@ -149,7 +252,7 @@ Always analyze the specific contract terms and conditions provided to you.`;
                         "Authorization": `Bearer ${this.groqApiKey}`,
                         "Content-Type": "application/json"
                     },
-                    timeout: 90000 // ✅ LONGER timeout for complex analysis
+                    timeout: 90000
                 }
             );
 
@@ -159,26 +262,25 @@ Always analyze the specific contract terms and conditions provided to you.`;
             }
 
             const content = response.data.choices[0].message.content.trim();
-            logger.legalSuccess(`Direct API response received: ${content.length} characters`);
+            logger.legalSuccess(`✅ Direct API response received: ${content.length} characters`);
 
-            // Enhanced JSON extraction (matching Python)
-            try {
-                return JSON.parse(content);
-            } catch (jsonError) {
-                // Extract JSON from content
-                const jsonMatch = content.match(/\{.*\}/s);
-                if (jsonMatch) {
-                    try {
-                        return JSON.parse(jsonMatch[0]);
-                    } catch (extractError) {
-                        // Return raw content if JSON extraction fails
-                    }
-                }
-                return { result: content, success: true };
+            // ✅ CRITICAL FIX: Use enhanced JSON parsing
+            const parsed = this.safeJsonParse(content);
+            
+            if (parsed) {
+                return parsed;
+            } else {
+                // Return structured response even if JSON parsing fails
+                return { 
+                    result: content, 
+                    success: true, 
+                    json_parse_failed: true,
+                    raw_content: content.substring(0, 1000)
+                };
             }
 
         } catch (error) {
-            logger.legalError(`Enhanced direct API call failed: ${error.message}`);
+            logger.legalError(`❌ Enhanced direct API call failed: ${error.message}`);
             throw error;
         }
     }
@@ -215,17 +317,14 @@ Always analyze the specific contract terms and conditions provided to you.`;
 
     async callGroq(prompt, systemMessage = null) {
         try {
-            // Try enhanced method first (matching Python)
             return await this.callGroqEnhanced(prompt, systemMessage);
         } catch (langchainError) {
-            logger.legalWarning(`Enhanced method failed: ${langchainError.message}`);
+            logger.legalWarning(`⚠️ Enhanced method failed: ${langchainError.message}`);
             try {
-                // Fallback to direct API (matching Python)
                 return await this.callGroqDirectEnhanced(prompt, systemMessage);
             } catch (directError) {
-                logger.legalError(`All enhanced methods failed: ${directError.message}`);
+                logger.legalError(`❌ All enhanced methods failed: ${directError.message}`);
                 
-                // Return structured error response (matching Python)
                 return {
                     error: "Analysis failed due to LLM service issues",
                     details: directError.message,
@@ -271,7 +370,7 @@ Always analyze the specific contract terms and conditions provided to you.`;
             features: [
                 "Enhanced legal analysis",
                 "Better accuracy for contract review",
-                "Improved JSON response parsing",
+                "Improved JSON response parsing with multiple fallback strategies",
                 "Robust error handling with fallbacks"
             ],
             updated_at: "2025-09-13"
@@ -279,7 +378,6 @@ Always analyze the specific contract terms and conditions provided to you.`;
     }
 }
 
-// Global enhanced LLM service instance (matching Python)
 const llmService = new EnhancedLLMService();
 
 module.exports = llmService;

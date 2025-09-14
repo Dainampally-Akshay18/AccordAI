@@ -1,10 +1,11 @@
-# vector_service.py - Enhanced with Legal Document Chunking
+# vector_service.py - Enhanced with Legal Document Chunking & Lightweight Embeddings
+
 import os
 import numpy as np
 from typing import List, Dict, Any, Optional
 from pinecone import Pinecone
 import logging
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding  # Lightweight replacement for sentence-transformers
 import hashlib
 from datetime import datetime
 from app.config import settings
@@ -14,15 +15,27 @@ import re
 logger = logging.getLogger(__name__)
 
 class VectorService:
+    
     def __init__(self):
         # Use settings from config.py
         self.pc = Pinecone(api_key=settings.PINECONE_API_KEY)
         self.index_name = settings.PINECONE_INDEX_NAME
         self.index = self.pc.Index(self.index_name)
         
-        # Use a model that works with your index dimensions
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-        self.target_dimension = 384 # Match your actual Pinecone index dimension
+        # Use FastEmbed - lightweight ONNX-based embedding model
+        # This replaces sentence-transformers with ~90% smaller memory footprint
+        try:
+            self.embedding_model = TextEmbedding(
+                model_name="BAAI/bge-small-en-v1.5",  # Lightweight 384-dim model
+                max_length=512,
+                cache_dir="./models"  # Cache models locally
+            )
+            logger.info("✅ Initialized FastEmbed lightweight embedding model")
+        except Exception as e:
+            logger.warning(f"FastEmbed initialization failed: {e}, falling back to fallback embeddings")
+            self.embedding_model = None
+            
+        self.target_dimension = 384  # Match your actual Pinecone index dimension
         
         logger.info(f"✅ Initialized Enhanced VectorService with index: {self.index_name}, dimension: {self.target_dimension}")
 
@@ -36,7 +49,7 @@ class VectorService:
         section_patterns = [
             r'\n\d+\.\s+[A-Z][^\.]*\n',  # Numbered sections like "1. POSITION"
             r'\n[A-Z][A-Z\s]+:\s*\n',    # ALL CAPS headers like "CONFIDENTIALITY:"
-            r'\n\([a-z]\)\s+',           # (a) subsections
+            r'\n\([a-z]\)\s+',            # (a) subsections
             r'\n\([0-9]+\)\s+'           # (1) subsections
         ]
         
@@ -57,7 +70,7 @@ class VectorService:
             paragraphs = [p.strip() for p in text.split('\n\n') if p.strip()]
             sections = [p for p in paragraphs if len(p) > 50]  # Only substantial paragraphs
             logger.info(f"📋 Split into {len(sections)} paragraphs (fallback)")
-        
+            
         if not sections:
             # Ultimate fallback - sentence splitting
             sentences = re.split(r'[.!?]+', text)
@@ -91,7 +104,6 @@ class VectorService:
                     current_chunk = " ".join(overlap_words) + " " + section
                 else:
                     current_chunk = section
-                
                 chunk_index += 1
             else:
                 # Add section to current chunk
@@ -114,7 +126,7 @@ class VectorService:
             logger.info("📝 Forcing minimum 3 chunks for legal document")
             # Re-chunk with smaller size
             return self._force_minimum_chunks(text, 3)
-        
+            
         logger.info(f"✅ Legal chunking completed: {len(chunks)} chunks created")
         return chunks
 
@@ -143,7 +155,7 @@ class VectorService:
             
             if len(chunks) >= min_chunks:
                 break
-        
+                
         return chunks
 
     def chunk_text(self, text: str, chunk_size: int = 500, overlap: int = 100) -> List[Dict[str, Any]]:
@@ -153,10 +165,26 @@ class VectorService:
         return self.chunk_legal_document(text, chunk_size, overlap)
 
     def create_embeddings(self, texts: List[str]) -> np.ndarray:
-        """Create embeddings with exact dimension matching"""
+        """Create embeddings with exact dimension matching using lightweight FastEmbed"""
         try:
-            # Generate embeddings
-            embeddings = self.embedding_model.encode(texts)
+            if not texts:
+                raise ValueError("Empty text list provided")
+            
+            # Clean texts
+            clean_texts = [str(text).strip() for text in texts if str(text).strip()]
+            if not clean_texts:
+                raise ValueError("No valid texts after cleaning")
+            
+            # Generate embeddings using FastEmbed
+            if self.embedding_model is not None:
+                # FastEmbed returns a generator, convert to list
+                embeddings_gen = self.embedding_model.embed(clean_texts)
+                embeddings = np.array(list(embeddings_gen))
+                logger.debug(f"FastEmbed generated embeddings with shape: {embeddings.shape}")
+            else:
+                # Fallback: Simple TF-IDF based embeddings (ultra-lightweight)
+                embeddings = self._create_fallback_embeddings(clean_texts)
+                logger.debug(f"Fallback embeddings generated with shape: {embeddings.shape}")
             
             # Handle single embedding case
             if len(embeddings.shape) == 1:
@@ -190,13 +218,51 @@ class VectorService:
             logger.error(f"Failed to create embeddings: {str(e)}")
             raise
 
+    def _create_fallback_embeddings(self, texts: List[str]) -> np.ndarray:
+        """Ultra-lightweight fallback embedding method using TF-IDF approach"""
+        from collections import Counter
+        import math
+        
+        # Build vocabulary from all texts
+        all_words = []
+        for text in texts:
+            words = text.lower().split()
+            all_words.extend(words)
+        
+        vocab = list(set(all_words))
+        vocab_size = min(len(vocab), 300)  # Limit vocabulary size
+        vocab = vocab[:vocab_size]
+        
+        # Create embeddings for each text
+        embeddings = []
+        
+        for text in texts:
+            words = text.lower().split()
+            word_counts = Counter(words)
+            
+            # Create TF-IDF-like vector
+            vector = []
+            for word in vocab:
+                tf = word_counts.get(word, 0) / len(words) if words else 0
+                # Simple IDF approximation
+                idf = math.log(len(texts) / max(1, sum(1 for t in texts if word in t.lower())))
+                vector.append(tf * idf)
+            
+            # Pad to 300 dimensions if needed
+            while len(vector) < 300:
+                vector.append(0.0)
+                
+            embeddings.append(vector[:300])  # Truncate to 300
+        
+        return np.array(embeddings, dtype=np.float32)
+
     async def store_document_chunks(self, document_id: str, chunks: List[Dict[str, Any]], metadata: Optional[Dict[str, Any]] = None) -> bool:
         """Store document chunks in Pinecone with enhanced debugging"""
         try:
             if not chunks:
                 logger.warning("No chunks provided for storage")
                 return False
-
+                
             vectors_to_upsert = []
             
             # Process chunks in batches for embedding generation
@@ -238,7 +304,7 @@ class VectorService:
                 })
                 
                 logger.info(f"📦 Prepared vector {i+1}/{len(chunks)}: {vector_id}")
-
+            
             # Upsert in batches to avoid rate limits
             batch_size = 100
             total_batches = (len(vectors_to_upsert) + batch_size - 1) // batch_size
@@ -255,7 +321,7 @@ class VectorService:
                 )
                 
                 logger.info(f"✅ Batch {current_batch} upserted successfully: {upsert_response}")
-
+            
             # Wait for index to propagate
             logger.info("⏳ Waiting 5 seconds for index propagation...")
             time.sleep(5)
@@ -276,19 +342,19 @@ class VectorService:
             if not query.strip():
                 logger.warning("Empty query provided")
                 return []
-
+            
             # Create query embedding
             query_embedding = self.create_embeddings([query])[0]
             
             # Verify query embedding dimension
             if len(query_embedding) != self.target_dimension:
                 raise ValueError(f"Query embedding dimension {len(query_embedding)} doesn't match target {self.target_dimension}")
-
+            
             logger.info(f"🔍 ENHANCED LEGAL DOCUMENT SEARCH:")
-            logger.info(f" Query: '{query[:50]}...'")
-            logger.info(f" Document ID: '{document_id}'")
-            logger.info(f" Top K: {top_k}")
-
+            logger.info(f"   Query: '{query[:50]}...'")
+            logger.info(f"   Document ID: '{document_id}'")
+            logger.info(f"   Top K: {top_k}")
+            
             # Enhanced search strategy for legal documents
             search_results = await self._search_legal_document(query_embedding, document_id, top_k)
             
@@ -297,7 +363,7 @@ class VectorService:
             if len(search_results.matches) == 0:
                 await self._debug_no_matches(document_id, query_embedding, top_k)
                 return []
-
+            
             relevant_chunks = []
             for match in search_results.matches:
                 chunk_data = {
@@ -311,8 +377,8 @@ class VectorService:
                     "section_type": match.metadata.get("section_type", "standard")
                 }
                 relevant_chunks.append(chunk_data)
-                logger.debug(f" Match: {match.id}, Score: {match.score:.4f}, Type: {chunk_data['section_type']}")
-
+                logger.debug(f"   Match: {match.id}, Score: {match.score:.4f}, Type: {chunk_data['section_type']}")
+            
             # Sort by chunk index to maintain document flow
             relevant_chunks.sort(key=lambda x: x["chunk_index"])
             
@@ -321,20 +387,20 @@ class VectorService:
                 logger.info("📝 Legal document: Ensuring minimum coverage...")
                 additional_results = await self._get_all_document_chunks(document_id, exclude_ids=[c["id"] for c in relevant_chunks])
                 relevant_chunks.extend(additional_results[:5-len(relevant_chunks)])
-
+            
             logger.info(f"✅ Retrieved {len(relevant_chunks)} relevant chunks from legal document")
             return relevant_chunks[:top_k]
-
+            
         except Exception as e:
             logger.error(f"❌ Failed to retrieve chunks from legal document: {str(e)}")
             return []
 
     async def _search_legal_document(self, query_embedding, document_id: str, top_k: int):
         """Specialized search for legal documents"""
-        
         # Strategy 1: Direct search with higher top_k for better coverage
         try:
             logger.info("🎯 Legal Document Strategy: Enhanced coverage search")
+            
             search_results = self.index.query(
                 vector=query_embedding.tolist(),
                 filter={"document_id": {"$eq": document_id}},
@@ -350,16 +416,16 @@ class VectorService:
                 
         except Exception as e:
             logger.warning(f"⚠️ Legal document search failed: {str(e)}")
-
+        
         # Fallback to standard search
         return await self._search_with_fallback(query_embedding, document_id, top_k)
 
     async def _search_with_fallback(self, query_embedding, document_id: str, top_k: int):
         """Fallback search with multiple strategies"""
-        
         # Strategy 1: Exact filter match
         try:
             logger.info("🎯 Strategy 1: Exact document_id filter")
+            
             search_results = self.index.query(
                 vector=query_embedding.tolist(),
                 filter={"document_id": {"$eq": document_id}},
@@ -375,10 +441,11 @@ class VectorService:
                 
         except Exception as e:
             logger.warning(f"⚠️ Strategy 1 failed: {str(e)}")
-
+        
         # Strategy 2: Broader search without filter, then manual filtering
         try:
             logger.info("🎯 Strategy 2: Broad search with manual filtering")
+            
             search_results = self.index.query(
                 vector=query_embedding.tolist(),
                 top_k=top_k * 3,
@@ -400,7 +467,7 @@ class VectorService:
                 
         except Exception as e:
             logger.warning(f"⚠️ Strategy 2 failed: {str(e)}")
-
+        
         # Return empty results
         from types import SimpleNamespace
         return SimpleNamespace(matches=[])
@@ -437,8 +504,8 @@ class VectorService:
             
             # Sort by chunk index
             additional_chunks.sort(key=lambda x: x["chunk_index"])
-            logger.info(f"📝 Found {len(additional_chunks)} additional chunks for legal document")
             
+            logger.info(f"📝 Found {len(additional_chunks)} additional chunks for legal document")
             return additional_chunks
             
         except Exception as e:
@@ -491,7 +558,7 @@ class VectorService:
                 logger.error("🔍 Sample vectors in index:")
                 for i, match in enumerate(total_vectors.matches[:3]):
                     doc_id = match.metadata.get("document_id", "NO_DOCUMENT_ID") if match.metadata else "NO_METADATA"
-                    logger.error(f" Vector {i+1}: {match.id}, document_id: '{doc_id}'")
+                    logger.error(f"   Vector {i+1}: {match.id}, document_id: '{doc_id}'")
             else:
                 logger.error("❌ NO VECTORS FOUND IN INDEX AT ALL!")
                 
@@ -519,7 +586,7 @@ class VectorService:
                     "exists": False,
                     "chunk_count": 0
                 }
-
+            
             # Get total index stats
             index_stats = self.index.describe_index_stats()
             
@@ -557,7 +624,7 @@ class VectorService:
             if not search_response.matches:
                 logger.warning(f"No chunks found for legal document {document_id}")
                 return True
-
+            
             # Extract vector IDs
             vector_ids = [match.id for match in search_response.matches]
             
@@ -567,7 +634,7 @@ class VectorService:
                 batch_ids = vector_ids[i:i + batch_size]
                 self.index.delete(ids=batch_ids, namespace="")
                 logger.info(f"Deleted batch of {len(batch_ids)} vectors from legal document")
-
+            
             logger.info(f"Successfully deleted {len(vector_ids)} chunks for legal document {document_id}")
             return True
             
@@ -596,7 +663,8 @@ class VectorService:
                 "status": "ready" if index_info and index_info.status.ready else "not ready",
                 "namespaces": stats.namespaces,
                 "target_dimension": self.target_dimension,
-                "optimized_for": "legal_documents"
+                "optimized_for": "legal_documents",
+                "embedding_engine": "FastEmbed_Lightweight"
             }
             
         except Exception as e:
@@ -624,14 +692,17 @@ class VectorService:
             return {
                 "status": "healthy",
                 "index_accessible": True,
-                "embedding_model_loaded": True,
+                "embedding_model_loaded": self.embedding_model is not None,
+                "embedding_engine": "FastEmbed" if self.embedding_model else "Fallback_TFIDF",
                 "target_dimension": self.target_dimension,
                 "optimized_for": "legal_documents",
+                "memory_efficient": True,
                 "features": [
                     "Legal document chunking",
-                    "Section-aware splitting",
+                    "Section-aware splitting", 
                     "Enhanced retrieval strategies",
-                    "Context preservation"
+                    "Context preservation",
+                    "Lightweight embeddings"
                 ],
                 "timestamp": datetime.now().isoformat()
             }
@@ -642,6 +713,7 @@ class VectorService:
                 "status": "unhealthy",
                 "error": str(e),
                 "optimized_for": "legal_documents",
+                "embedding_engine": "FastEmbed" if self.embedding_model else "Fallback",
                 "timestamp": datetime.now().isoformat()
             }
 

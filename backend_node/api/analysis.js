@@ -29,7 +29,7 @@ class AnalysisResponse {
     }
 }
 
-// ✅ DRAMATICALLY IMPROVED PROMPTS WITH LEGAL EXPERTISE (matching Python exactly)
+// ✅ EXACT SAME PROMPTS AS PYTHON
 const ENHANCED_RISK_PROMPT = `
 You are a senior legal risk analyst with 15+ years of experience reviewing contracts. Analyze the following contract content and identify ALL legal risks present.
 
@@ -121,12 +121,12 @@ You MUST respond with valid JSON in this exact format (no additional text before
 Base your analysis entirely on the actual contract content provided - extract specific terms, amounts, dates, and conditions mentioned in the document.
 `;
 
-// ✅ ENHANCED CHUNK RETRIEVAL WITH COMPREHENSIVE COVERAGE (matching Python exactly)
+// ✅ CRITICAL FIX: Enhanced RAG chunk retrieval (EXACT MATCH to Python get_enhanced_comprehensive_chunks)
 async function getEnhancedComprehensiveChunks(documentId, analysisType) {
     try {
-        logger.vectorInfo(`Enhanced legal document retrieval for ${analysisType} analysis of document: ${documentId}`);
+        logger.vectorInfo(`🔍 Enhanced legal document retrieval for ${analysisType} analysis of document: ${documentId}`);
 
-        // ✅ EXPANDED SEARCH STRATEGIES FOR BETTER LEGAL COVERAGE (matching Python)
+        // ✅ EXACT SAME SEARCH STRATEGIES AS PYTHON
         const enhancedSearchStrategies = {
             "risk": [
                 "liability responsibility indemnification damages penalties liquidated",
@@ -160,7 +160,7 @@ async function getEnhancedComprehensiveChunks(documentId, analysisType) {
         const allChunks = [];
         const strategies = enhancedSearchStrategies[analysisType] || enhancedSearchStrategies["summary"];
 
-        // ✅ EXECUTE MULTIPLE COMPREHENSIVE SEARCHES
+        // ✅ EXECUTE MULTIPLE COMPREHENSIVE SEARCHES (EXACT MATCH to Python)
         for (const strategy of strategies) {
             try {
                 const chunks = await vectorService.retrieveRelevantChunks(
@@ -170,15 +170,15 @@ async function getEnhancedComprehensiveChunks(documentId, analysisType) {
                 );
                 
                 allChunks.push(...chunks);
-                logger.vectorInfo(`Strategy '${strategy.substring(0, 40)}...' returned ${chunks.length} chunks`);
+                logger.vectorInfo(`🔍 Strategy '${strategy.substring(0, 40)}...' returned ${chunks.length} chunks`);
                 
             } catch (error) {
-                logger.legalWarning(`Search strategy '${strategy.substring(0, 30)}...' failed: ${error.message}`);
+                logger.legalWarning(`⚠️ Search strategy '${strategy.substring(0, 30)}...' failed: ${error.message}`);
                 continue;
             }
         }
 
-        // ✅ REMOVE DUPLICATES AND GET BEST CHUNKS
+        // ✅ REMOVE DUPLICATES AND GET BEST CHUNKS (EXACT MATCH to Python)
         const uniqueChunks = {};
         for (const chunk of allChunks) {
             const chunkId = chunk.id || `chunk_${chunk.chunk_index || 0}`;
@@ -192,9 +192,9 @@ async function getEnhancedComprehensiveChunks(documentId, analysisType) {
             (a.chunk_index || 0) - (b.chunk_index || 0)
         );
 
-        // ✅ ENSURE COMPREHENSIVE COVERAGE - Get at least 6 high-quality chunks for legal analysis
+        // ✅ ENSURE COMPREHENSIVE COVERAGE (EXACT MATCH to Python)
         if (sortedChunks.length < 6) {
-            logger.vectorInfo("Getting additional chunks to ensure comprehensive legal document coverage");
+            logger.vectorInfo("🔍 Getting additional chunks to ensure comprehensive legal document coverage");
             try {
                 const additionalChunks = await vectorService.retrieveRelevantChunks(
                     `legal contract agreement document terms conditions ${analysisType}`,
@@ -209,14 +209,14 @@ async function getEnhancedComprehensiveChunks(documentId, analysisType) {
                     }
                 }
             } catch (error) {
-                logger.legalWarning(`Additional chunk retrieval failed: ${error.message}`);
+                logger.legalWarning(`⚠️ Additional chunk retrieval failed: ${error.message}`);
             }
         }
 
-        // ✅ TAKE BEST CHUNKS WITH SUFFICIENT CONTEXT FOR LEGAL ANALYSIS
-        const finalChunks = sortedChunks.slice(0, Math.min(10, sortedChunks.length)); // Up to 10 chunks
+        // ✅ TAKE BEST CHUNKS (EXACT MATCH to Python)
+        const finalChunks = sortedChunks.slice(0, Math.min(10, sortedChunks.length));
 
-        // ✅ ENHANCED TEXT COMBINATION WITH LEGAL DOCUMENT FORMATTING
+        // ✅ ENHANCED TEXT COMBINATION (EXACT MATCH to Python formatting)
         let combinedText = "\n\n" + "=".repeat(60) + "\nLEGAL CONTRACT CONTENT FOR ANALYSIS\n" + "=".repeat(60) + "\n\n";
         
         for (let i = 0; i < finalChunks.length; i++) {
@@ -228,24 +228,24 @@ async function getEnhancedComprehensiveChunks(documentId, analysisType) {
         
         combinedText += "=".repeat(60) + "\nEND OF LEGAL CONTRACT CONTENT\n" + "=".repeat(60);
 
-        logger.legalSuccess(`Enhanced legal document retrieval completed: ${finalChunks.length} chunks, ${combinedText.length} characters`);
+        logger.legalSuccess(`✅ Enhanced legal document retrieval completed: ${finalChunks.length} chunks, ${combinedText.length} characters`);
 
         // Log content preview for debugging
         const preview = combinedText.substring(0, 300).replace(/\n/g, ' ');
-        logger.processingInfo(`Legal content preview: ${preview}...`);
+        logger.processingInfo(`📄 Legal content preview: ${preview}...`);
 
         return [combinedText, finalChunks];
 
     } catch (error) {
-        logger.legalError(`Enhanced legal document chunk retrieval failed: ${error.message}`);
+        logger.legalError(`❌ Enhanced legal document chunk retrieval failed: ${error.message}`);
         throw new HTTPException(500, `Legal document retrieval failed: ${error.message}`);
     }
 }
 
-// ✅ ENHANCED RESPONSE VALIDATION WITH LEGAL DOCUMENT AWARENESS (matching Python)
+// ✅ ENHANCED RESPONSE VALIDATION (EXACT MATCH to Python)
 function validateAndEnhanceAnalysisResponse(data, analysisType, originalContent) {
     try {
-        logger.processingInfo(`Validating ${analysisType} response for legal document: ${typeof data}`);
+        logger.processingInfo(`🔍 Validating ${analysisType} response for legal document: ${typeof data}`);
 
         if (analysisType === "risk") {
             if (!Array.isArray(data.risks)) {
@@ -275,7 +275,6 @@ function validateAndEnhanceAnalysisResponse(data, analysisType, originalContent)
                     });
                 }
 
-                // Add more fallback risks based on content...
                 if (fallbackRisks.length === 0) {
                     fallbackRisks.push({
                         title: "Contract Compliance and Legal Obligations",
@@ -367,17 +366,17 @@ Best regards,
             }
         }
 
-        logger.legalSuccess(`Successfully validated and enhanced comprehensive ${analysisType} response`);
+        logger.legalSuccess(`✅ Successfully validated and enhanced comprehensive ${analysisType} response`);
         return data;
 
     } catch (error) {
-        logger.legalError(`Comprehensive response validation failed: ${error.message}`);
+        logger.legalError(`❌ Comprehensive response validation failed: ${error.message}`);
         return createEmergencyFallbackResponse(analysisType, originalContent);
     }
 }
 
 function createEmergencyFallbackResponse(analysisType, content) {
-    logger.legalWarning(`Creating emergency fallback for ${analysisType}`);
+    logger.legalWarning(`⚠️ Creating emergency fallback for ${analysisType}`);
     
     if (analysisType === "risk") {
         return {
@@ -405,20 +404,27 @@ function createEmergencyFallbackResponse(analysisType, content) {
     }
 }
 
-// API Endpoints (matching Python exactly)
+// ✅ FRONTEND-COMPATIBLE ENDPOINTS (matching your frontend API calls)
 
-// POST /risks
-router.post('/risks', getCurrentSession, asyncHandler(async (req, res) => {
+// POST /risk-analysis (Frontend expects this)
+router.post('/risk-analysis', getCurrentSession, asyncHandler(async (req, res) => {
     const startTime = Date.now();
     
     try {
         const request = new AnalysisRequest(req.body);
         const sessionId = req.currentSession.session_id;
+        const sessionDocumentId = `${sessionId}_${request.document_id}`;
         
-        logger.legalInfo(`Starting risk analysis for document: ${request.document_id}`);
+        logger.legalInfo(`🎯 Starting risk analysis for document: ${sessionDocumentId}`);
         
-        // Get enhanced comprehensive chunks
-        const [combinedText, finalChunks] = await getEnhancedComprehensiveChunks(request.document_id, "risk");
+        // ✅ CRITICAL FIX: Get enhanced comprehensive chunks using RAG (EXACT MATCH to Python)
+        const [combinedText, finalChunks] = await getEnhancedComprehensiveChunks(sessionDocumentId, "risk");
+        
+        if (!combinedText.trim()) {
+            throw new HTTPException(404, "No content found for risk analysis - please ensure legal document was uploaded successfully");
+        }
+        
+        logger.processingInfo(`📊 Analyzing ${combinedText.length} characters across ${finalChunks.length} chunks for legal risks`);
         
         // Prepare prompt
         const prompt = ENHANCED_RISK_PROMPT.replace('{relevant_text}', combinedText);
@@ -431,13 +437,20 @@ router.post('/risks', getCurrentSession, asyncHandler(async (req, res) => {
         
         const response = new AnalysisResponse({
             analysis: validatedResult,
-            relevant_chunks: finalChunks,
+            relevant_chunks: finalChunks.map(chunk => ({
+                chunk_index: chunk.chunk_index || 0,
+                text: chunk.text,
+                relevance_score: chunk.score || 0.8,
+                word_count: chunk.word_count || chunk.text.split(' ').length,
+                section_type: chunk.section_type || "legal_section",
+                character_count: chunk.text.length
+            })),
             status: "success",
             timestamp: new Date().toISOString(),
             session_id: sessionId
         });
         
-        logger.legalSuccess(`Risk analysis completed for document: ${request.document_id}`, {
+        logger.legalSuccess(`✅ Risk analysis completed for document: ${request.document_id}`, {
             chunks_used: finalChunks.length,
             processing_time: Date.now() - startTime
         });
@@ -445,23 +458,30 @@ router.post('/risks', getCurrentSession, asyncHandler(async (req, res) => {
         res.json(response);
         
     } catch (error) {
-        logger.legalError(`Risk analysis failed: ${error.message}`);
+        logger.legalError(`❌ Risk analysis failed: ${error.message}`);
         throw error;
     }
 }));
 
-// POST /negotiation
-router.post('/negotiation', getCurrentSession, asyncHandler(async (req, res) => {
+// POST /negotiation-assistant (Frontend expects this)
+router.post('/negotiation-assistant', getCurrentSession, asyncHandler(async (req, res) => {
     const startTime = Date.now();
     
     try {
         const request = new AnalysisRequest(req.body);
         const sessionId = req.currentSession.session_id;
+        const sessionDocumentId = `${sessionId}_${request.document_id}`;
         
-        logger.legalInfo(`Starting negotiation analysis for document: ${request.document_id}`);
+        logger.legalInfo(`🤝 Starting negotiation analysis for document: ${sessionDocumentId}`);
         
-        // Get enhanced comprehensive chunks
-        const [combinedText, finalChunks] = await getEnhancedComprehensiveChunks(request.document_id, "negotiation");
+        // ✅ CRITICAL FIX: Get enhanced comprehensive chunks using RAG (EXACT MATCH to Python)
+        const [combinedText, finalChunks] = await getEnhancedComprehensiveChunks(sessionDocumentId, "negotiation");
+        
+        if (!combinedText.trim()) {
+            throw new HTTPException(404, "No content found for negotiation analysis");
+        }
+        
+        logger.processingInfo(`📧 Generating professional legal emails from ${combinedText.length} characters`);
         
         // Prepare prompt
         const prompt = ENHANCED_NEGOTIATION_PROMPT.replace('{relevant_text}', combinedText);
@@ -474,13 +494,19 @@ router.post('/negotiation', getCurrentSession, asyncHandler(async (req, res) => 
         
         const response = new AnalysisResponse({
             analysis: validatedResult,
-            relevant_chunks: finalChunks,
+            relevant_chunks: finalChunks.map(chunk => ({
+                chunk_index: chunk.chunk_index || 0,
+                text: chunk.text.length > 600 ? chunk.text.substring(0, 600) + "..." : chunk.text,
+                relevance_score: chunk.score || 0.8,
+                word_count: chunk.word_count || chunk.text.split(' ').length,
+                section_type: chunk.section_type || "legal_section"
+            })),
             status: "success",
             timestamp: new Date().toISOString(),
             session_id: sessionId
         });
         
-        logger.legalSuccess(`Negotiation analysis completed for document: ${request.document_id}`, {
+        logger.legalSuccess(`✅ Negotiation analysis completed for document: ${request.document_id}`, {
             chunks_used: finalChunks.length,
             processing_time: Date.now() - startTime
         });
@@ -488,23 +514,30 @@ router.post('/negotiation', getCurrentSession, asyncHandler(async (req, res) => 
         res.json(response);
         
     } catch (error) {
-        logger.legalError(`Negotiation analysis failed: ${error.message}`);
+        logger.legalError(`❌ Negotiation analysis failed: ${error.message}`);
         throw error;
     }
 }));
 
-// POST /summary
-router.post('/summary', getCurrentSession, asyncHandler(async (req, res) => {
+// POST /document-summary (Frontend expects this)
+router.post('/document-summary', getCurrentSession, asyncHandler(async (req, res) => {
     const startTime = Date.now();
     
     try {
         const request = new AnalysisRequest(req.body);
         const sessionId = req.currentSession.session_id;
+        const sessionDocumentId = `${sessionId}_${request.document_id}`;
         
-        logger.legalInfo(`Starting summary analysis for document: ${request.document_id}`);
+        logger.legalInfo(`📄 Starting summary analysis for document: ${sessionDocumentId}`);
         
-        // Get enhanced comprehensive chunks
-        const [combinedText, finalChunks] = await getEnhancedComprehensiveChunks(request.document_id, "summary");
+        // ✅ CRITICAL FIX: Get enhanced comprehensive chunks using RAG (EXACT MATCH to Python)
+        const [combinedText, finalChunks] = await getEnhancedComprehensiveChunks(sessionDocumentId, "summary");
+        
+        if (!combinedText.trim()) {
+            throw new HTTPException(404, "No content found for document summary");
+        }
+        
+        logger.processingInfo(`📋 Comprehensive analysis from ${combinedText.length} characters across ${finalChunks.length} chunks`);
         
         // Prepare prompt
         const prompt = ENHANCED_SUMMARY_PROMPT.replace('{relevant_text}', combinedText);
@@ -517,13 +550,21 @@ router.post('/summary', getCurrentSession, asyncHandler(async (req, res) => {
         
         const response = new AnalysisResponse({
             analysis: validatedResult,
-            relevant_chunks: finalChunks,
-            status: "success",
+            relevant_chunks: finalChunks.map(chunk => ({
+                chunk_index: chunk.chunk_index || 0,
+                text: chunk.text, // Return full text for summary
+                relevance_score: chunk.score || 0.8,
+                word_count: chunk.word_count || chunk.text.split(' ').length,
+                section_type: chunk.section_type || "legal_section",
+                character_count: chunk.text.length,
+                content_preview: chunk.text.length > 200 ? chunk.text.substring(0, 200) + "..." : chunk.text
+            })),
+            status: "comprehensive_analysis_complete",
             timestamp: new Date().toISOString(),
             session_id: sessionId
         });
         
-        logger.legalSuccess(`Summary analysis completed for document: ${request.document_id}`, {
+        logger.legalSuccess(`✅ Summary analysis completed for document: ${request.document_id}`, {
             chunks_used: finalChunks.length,
             processing_time: Date.now() - startTime
         });
@@ -531,16 +572,30 @@ router.post('/summary', getCurrentSession, asyncHandler(async (req, res) => {
         res.json(response);
         
     } catch (error) {
-        logger.legalError(`Summary analysis failed: ${error.message}`);
+        logger.legalError(`❌ Summary analysis failed: ${error.message}`);
         throw error;
     }
 }));
 
-// Legacy endpoint for backward compatibility
+// Legacy endpoints for backward compatibility
+router.post('/risks', getCurrentSession, asyncHandler(async (req, res) => {
+    req.url = '/risk-analysis';
+    return router.handle(req, res);
+}));
+
+router.post('/negotiation', getCurrentSession, asyncHandler(async (req, res) => {
+    req.url = '/negotiation-assistant';
+    return router.handle(req, res);
+}));
+
+router.post('/summary', getCurrentSession, asyncHandler(async (req, res) => {
+    req.url = '/document-summary';
+    return router.handle(req, res);
+}));
+
 router.post('/rag_analysis', getCurrentSession, asyncHandler(async (req, res) => {
-    logger.processingInfo("Legacy RAG analysis redirecting to enhanced risk analysis");
-    req.url = '/risks';
-    req.method = 'POST';
+    logger.processingInfo("📋 Legacy RAG analysis redirecting to enhanced risk analysis");
+    req.url = '/risk-analysis';
     return router.handle(req, res);
 }));
 

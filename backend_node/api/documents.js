@@ -10,14 +10,13 @@ const { HTTPException, ValidationException, asyncHandler } = require('../middlew
 
 const router = express.Router();
 
-// Configure multer for file uploads (matching FastAPI File handling)
+// Configure multer for file uploads
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: {
         fileSize: config.MAX_FILE_SIZE, // 10MB default
     },
     fileFilter: (req, file, cb) => {
-        // Accept only PDF files for now (matching FastAPI logic)
         if (file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf')) {
             cb(null, true);
         } else {
@@ -35,7 +34,6 @@ class StoreChunkRequest {
         this.overlap = data.overlap || 100;
         this.document_type = data.document_type || "text";
         
-        // Validation
         if (!this.full_text || typeof this.full_text !== 'string' || !this.full_text.trim()) {
             throw new ValidationException("Text cannot be empty");
         }
@@ -55,7 +53,7 @@ class StoreChunkResponse {
     }
 }
 
-// POST /upload-pdf (exact match to FastAPI)
+// POST /upload-pdf (exact match to Python)
 router.post('/upload-pdf', getCurrentSession, upload.single('file'), asyncHandler(async (req, res) => {
     try {
         if (!req.file) {
@@ -69,19 +67,19 @@ router.post('/upload-pdf', getCurrentSession, upload.single('file'), asyncHandle
         const sessionId = req.currentSession.session_id;
         const pdfContent = req.file.buffer;
         
-        logger.processingInfo(`Processing Legal PDF: ${req.file.originalname} (${pdfContent.length} bytes)`);
+        logger.processingInfo(`📄 Processing Legal PDF: ${req.file.originalname} (${pdfContent.length} bytes)`);
         
-        // Enhanced PDF text extraction (matching FastAPI)
+        // Enhanced PDF text extraction (matching Python)
         const extractionResult = await pdfService.extractTextFromPdf(pdfContent);
         
         if (extractionResult.quality_score < 2.0) {
-            logger.legalWarning(`Low quality extraction: ${extractionResult.quality_score}`);
+            logger.legalWarning(`⚠️ Low quality extraction: ${extractionResult.quality_score}`);
             throw new HTTPException(400, 
                 `PDF extraction quality too low (${extractionResult.quality_score.toFixed(1)}/10). Please ensure PDF contains readable text.`
             );
         }
         
-        // Generate document ID (matching FastAPI logic)
+        // Generate document ID (matching Python logic)
         const fileHash = crypto.createHash('md5').update(pdfContent).digest('hex');
         const cleanFilename = req.file.originalname
             .replace('.pdf', '')
@@ -90,17 +88,28 @@ router.post('/upload-pdf', getCurrentSession, upload.single('file'), asyncHandle
         const documentId = `doc_${cleanFilename}_${fileHash.substring(0, 8)}_${Math.floor(Date.now() / 1000)}`;
         const sessionDocumentId = `${sessionId}_${documentId}`;
         
-        logger.legalSuccess(`Extracted ${extractionResult.text.length} characters using ${extractionResult.method_used}`);
-        logger.processingInfo(`Quality score: ${extractionResult.quality_score.toFixed(2)}`);
+        logger.legalSuccess(`✅ Extracted ${extractionResult.text.length} characters using ${extractionResult.method_used}`);
+        logger.processingInfo(`📊 Quality score: ${extractionResult.quality_score.toFixed(2)}`);
         
-        // Legal document optimized chunking (matching FastAPI)
+        // ✅ CRITICAL FIX: Legal document optimized chunking (matching Python exactly)
         const chunks = vectorService.chunkLegalDocument(
             extractionResult.text,
             500,
             100
         );
         
-        // Prepare enhanced metadata (matching FastAPI)
+        // ✅ ENSURE MINIMUM 3 CHUNKS (matching Python logic)
+        if (chunks.length < 3) {
+            logger.legalWarning(`Only ${chunks.length} chunks created, forcing minimum 3 for legal document`);
+            const forcedChunks = vectorService._forceMinimumChunks(extractionResult.text, 3);
+            if (forcedChunks.length >= 3) {
+                chunks.splice(0, chunks.length, ...forcedChunks);
+            }
+        }
+        
+        logger.legalSuccess(`✅ Created ${chunks.length} legal document chunks`);
+        
+        // Prepare enhanced metadata (matching Python)
         const metadata = {
             session_id: sessionId,
             original_document_id: documentId,
@@ -114,7 +123,7 @@ router.post('/upload-pdf', getCurrentSession, upload.single('file'), asyncHandle
             backend: "Pinecone Enhanced Legal"
         };
         
-        // Store chunks in enhanced vector database (matching FastAPI)
+        // ✅ CRITICAL FIX: Store chunks in enhanced vector database (matching Python)
         const success = await vectorService.storeDocumentChunks(
             sessionDocumentId,
             chunks,
@@ -125,7 +134,7 @@ router.post('/upload-pdf', getCurrentSession, upload.single('file'), asyncHandle
             throw new HTTPException(500, "Failed to store legal document chunks");
         }
         
-        logger.legalSuccess(`Successfully processed Legal PDF: ${chunks.length} chunks stored`);
+        logger.legalSuccess(`🎉 Successfully processed Legal PDF: ${chunks.length} chunks stored`);
         
         const response = new StoreChunkResponse({
             document_id: documentId,
@@ -151,41 +160,50 @@ router.post('/upload-pdf', getCurrentSession, upload.single('file'), asyncHandle
             throw error;
         }
         
-        logger.legalError(`PDF processing failed: ${error.message}`);
+        logger.legalError(`❌ PDF processing failed: ${error.message}`);
         throw new HTTPException(500, `PDF processing failed: ${error.message}`);
     }
 }));
 
-// POST /store_chunks (exact match to FastAPI)
+// POST /store_chunks (exact match to Python)
 router.post('/store_chunks', getCurrentSession, asyncHandler(async (req, res) => {
     try {
         const request = new StoreChunkRequest(req.body);
         const sessionId = req.currentSession.session_id;
         
-        // Generate document ID if not provided (matching FastAPI)
+        // Generate document ID if not provided (matching Python)
         if (!request.document_id) {
             const textHash = crypto.createHash('md5').update(request.full_text).digest('hex');
             request.document_id = `doc_${textHash}_${Math.floor(Date.now() / 1000)}`;
         }
         
-        // Create session-specific document ID (matching FastAPI)
+        // Create session-specific document ID (matching Python)
         const sessionDocumentId = `${sessionId}_${request.document_id}`;
         
-        logger.processingInfo(`STORING ENHANCED LEGAL DOCUMENT:`);
+        logger.processingInfo(`📄 STORING ENHANCED LEGAL DOCUMENT:`);
         logger.processingInfo(` Session ID: ${sessionId}`);
         logger.processingInfo(` Document ID: ${request.document_id}`);
         logger.processingInfo(` Text length: ${request.full_text.length} characters`);
         
-        // Use enhanced legal document chunking (matching FastAPI)
+        // ✅ CRITICAL FIX: Use enhanced legal document chunking (matching Python)
         const chunks = vectorService.chunkLegalDocument(
             request.full_text,
             request.chunk_size,
             request.overlap
         );
         
-        logger.legalSuccess(`Created ${chunks.length} legal document chunks`);
+        // ✅ ENSURE MINIMUM 3 CHUNKS (matching Python logic)
+        if (chunks.length < 3) {
+            logger.legalWarning(`Only ${chunks.length} chunks created, forcing minimum 3 for legal document`);
+            const forcedChunks = vectorService._forceMinimumChunks(request.full_text, 3);
+            if (forcedChunks.length >= 3) {
+                chunks.splice(0, chunks.length, ...forcedChunks);
+            }
+        }
         
-        // Prepare enhanced metadata (matching FastAPI)
+        logger.legalSuccess(`✅ Created ${chunks.length} legal document chunks`);
+        
+        // Prepare enhanced metadata (matching Python)
         const metadata = {
             session_id: sessionId,
             original_document_id: request.document_id,
@@ -198,7 +216,7 @@ router.post('/store_chunks', getCurrentSession, asyncHandler(async (req, res) =>
             backend: "Pinecone Enhanced Legal"
         };
         
-        // Store chunks in enhanced vector database (matching FastAPI)
+        // ✅ CRITICAL FIX: Store chunks in enhanced vector database (matching Python)
         const success = await vectorService.storeDocumentChunks(
             sessionDocumentId,
             chunks,
@@ -209,7 +227,7 @@ router.post('/store_chunks', getCurrentSession, asyncHandler(async (req, res) =>
             throw new HTTPException(500, "Failed to store enhanced legal document chunks");
         }
         
-        logger.legalSuccess(`Successfully stored enhanced legal document: ${chunks.length} chunks`);
+        logger.legalSuccess(`🎉 Successfully stored enhanced legal document: ${chunks.length} chunks`);
         
         const response = new StoreChunkResponse({
             document_id: request.document_id,
@@ -234,19 +252,19 @@ router.post('/store_chunks', getCurrentSession, asyncHandler(async (req, res) =>
             throw error;
         }
         
-        logger.legalError(`Enhanced legal document storage failed: ${error.message}`);
+        logger.legalError(`❌ Enhanced legal document storage failed: ${error.message}`);
         throw new HTTPException(500, `Failed to store document: ${error.message}`);
     }
 }));
 
-// GET /document/:document_id/info (exact match to FastAPI)
+// GET /document/:document_id/info (exact match to Python)
 router.get('/document/:document_id/info', getCurrentSession, asyncHandler(async (req, res) => {
     try {
         const { document_id } = req.params;
         const sessionId = req.currentSession.session_id;
         const sessionDocumentId = `${sessionId}_${document_id}`;
         
-        // Get document info from enhanced vector service (matching FastAPI)
+        // Get document info from enhanced vector service (matching Python)
         const docInfo = await vectorService.getDocumentInfo(sessionDocumentId);
         
         res.json({
@@ -265,47 +283,12 @@ router.get('/document/:document_id/info', getCurrentSession, asyncHandler(async 
         });
         
     } catch (error) {
-        logger.legalError(`Failed to get enhanced legal document info: ${error.message}`);
+        logger.legalError(`❌ Failed to get enhanced legal document info: ${error.message}`);
         throw new HTTPException(404, "Legal document not found");
     }
 }));
 
-// GET /debug/list-documents (exact match to FastAPI)
-router.get('/debug/list-documents', getCurrentSession, asyncHandler(async (req, res) => {
-    try {
-        const sessionId = req.currentSession.session_id;
-        
-        // Get enhanced index info (matching FastAPI)
-        const indexInfo = vectorService.checkIndexInfo();
-        
-        // Get health check info (matching FastAPI)
-        const healthInfo = await vectorService.healthCheck();
-        
-        res.json({
-            session_id: sessionId,
-            backend: "Pinecone Enhanced Legal",
-            index_info: indexInfo,
-            health_check: healthInfo,
-            message: "Enhanced Pinecone with legal document optimization active",
-            enhancements: [
-                "Legal document aware chunking",
-                "Section-based text splitting",
-                "Enhanced PDF extraction with quality scoring",
-                "Multi-method PDF processing with fallbacks",
-                "Improved context preservation for legal analysis",
-                "Llama 3.3 70B model integration"
-            ],
-            supported_formats: [".pdf", ".txt", ".docx", ".doc"],
-            timestamp: new Date().toISOString()
-        });
-        
-    } catch (error) {
-        logger.legalError(`Failed to list enhanced legal documents: ${error.message}`);
-        throw new HTTPException(500, `Failed to list documents: ${error.message}`);
-    }
-}));
-
-// DELETE /document/:document_id (exact match to FastAPI)
+// DELETE /document/:document_id (exact match to Python)
 router.delete('/document/:document_id', getCurrentSession, asyncHandler(async (req, res) => {
     try {
         const { document_id } = req.params;
@@ -318,7 +301,7 @@ router.delete('/document/:document_id', getCurrentSession, asyncHandler(async (r
             throw new HTTPException(500, "Failed to delete enhanced legal document");
         }
         
-        logger.legalSuccess(`Successfully deleted enhanced legal document ${document_id} (session ${sessionId})`);
+        logger.legalSuccess(`✅ Successfully deleted enhanced legal document ${document_id} (session ${sessionId})`);
         
         res.json({
             document_id: document_id,
@@ -333,21 +316,21 @@ router.delete('/document/:document_id', getCurrentSession, asyncHandler(async (r
             throw error;
         }
         
-        logger.legalError(`Failed to delete enhanced legal document: ${error.message}`);
+        logger.legalError(`❌ Failed to delete enhanced legal document: ${error.message}`);
         throw new HTTPException(500, "Failed to delete document");
     }
 }));
 
-// GET /health/legal-system (exact match to FastAPI)
+// GET /health/legal-system (exact match to Python)
 router.get('/health/legal-system', asyncHandler(async (req, res) => {
     try {
-        // Check vector service (matching FastAPI)
+        // Check vector service (matching Python)
         const vectorHealth = await vectorService.healthCheck();
         
-        // Check index info (matching FastAPI)
+        // Check index info (matching Python)
         const indexInfo = vectorService.checkIndexInfo();
         
-        // Check PDF service (matching FastAPI)
+        // Check PDF service (matching Python)
         const pdfHealth = await pdfService.healthCheck();
         
         res.json({
@@ -370,7 +353,7 @@ router.get('/health/legal-system', asyncHandler(async (req, res) => {
         });
         
     } catch (error) {
-        logger.legalError(`Legal system health check failed: ${error.message}`);
+        logger.legalError(`❌ Legal system health check failed: ${error.message}`);
         throw new HTTPException(500, `System health check failed: ${error.message}`);
     }
 }));
