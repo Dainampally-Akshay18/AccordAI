@@ -101,3 +101,6 @@ async def root():
         "docs": "/docs" if settings.DEBUG else "Documentation not available in production"
     }
 
+@app.head("/")
+async def head_root():
+    return {"message": "OK"}
