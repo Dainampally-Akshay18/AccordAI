@@ -13,6 +13,7 @@ tenacity
 # Authentication & Security
 python-jose[cryptography]
 passlib[bcrypt]
+PyJWT
 
 # AI & Machine Learning
 langchain
@@ -32,3 +33,4 @@ PyPDF2
 python-dotenv
 httpx
 deep-translator
+
