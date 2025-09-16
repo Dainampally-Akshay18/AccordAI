@@ -121,7 +121,7 @@ const About = () => {
       role: 'Frontend Developer',
       specialty: 'Langchain Developer',
       bio: 'Akshay Kireet is frontend developer with a passion for building intuitive user interfaces. He specializes in ReactJS and Langchain to create seamless user experiences.',
-      image: 'https://w0.peakpx.com/wallpaper/166/790/HD-wallpaper-virat-kohli.jpg',
+      image: 'https://res.cloudinary.com/dadapse5k/image/upload/v1758006505/Akshay_ivg3og.png',
       skills: ['ReactJS', 'Langchain', 'FastAPI', 'Pandas'],
       social: {
         linkedin: 'https://linkedin.com/in/alex-rodriguez',
@@ -135,7 +135,7 @@ const About = () => {
       role: 'ML Developer',
       specialty: 'Machine Learning & AI',
       bio: 'M Saiteja is a skilled machine learning developer specializing in ML. He has a strong background in data science and a passion for creating intelligent systems.',
-      image: 'https://cdn.punchng.com/wp-content/uploads/2023/09/01133700/Ronaldo.jpeg',
+      image: 'https://res.cloudinary.com/dadapse5k/image/upload/v1758006489/saiteja_dzj2gn.jpg',
       skills: ['Python', 'TensorFlow', 'PyTorch', 'Scikit-learn'],
       social: {
         linkedin: 'https://linkedin.com/in/sarah-chen',
@@ -149,7 +149,7 @@ const About = () => {
       role: 'Backend Developer',
       specialty: 'FastAPI',
       bio: 'Marcus ensures our platform runs smoothly with enterprise-grade security. He manages our cloud infrastructure and CI/CD pipelines.',
-      image: 'https://documents.iplt20.com/ipl/IPLHeadshot2024/6.png',
+      image: 'https://res.cloudinary.com/dadapse5k/image/upload/v1758006488/shahid_zwaukj.jpg',
       skills: ['AWS', 'Docker', 'Kubernetes', 'Terraform'],
       social: {
         linkedin: 'https://linkedin.com/in/marcus-johnson',
@@ -163,7 +163,7 @@ const About = () => {
       role: 'Langchain Developer',
       specialty: 'Langchain & AI Integration',
       bio: 'Dheeraj is a langchain developer with a knack for integrating AI into user-friendly applications. He focuses on creating seamless user experiences.',
-      image: 'https://www.sportzcraazy.com/wp-content/uploads/2020/02/ms-dhoni.jpeg',
+      image: 'https://res.cloudinary.com/dadapse5k/image/upload/v1758006515/Dheeraj_tepaci.jpg',
       skills: ['Langchain', 'JavaScript', 'Pandas', 'NumPy'],
       social: {
         linkedin: 'https://linkedin.com/in/emma-watson-design',
@@ -177,7 +177,7 @@ const About = () => {
       role: 'Deployment Engineer',
       specialty: 'Cloud Infrastructure',
       bio: 'Sai Ganesh is a deployment engineer who specializes in cloud infrastructure. He ensures our platform is scalable and reliable.',
-      image: 'https://english.cdn.zeenews.com/sites/default/files/2022/12/14/1129224-gallerymessi1.jpg',
+      image: 'https://res.cloudinary.com/dadapse5k/image/upload/v1758006710/Screenshot_2025-09-16_124130_xm6p41.png',
       skills: ['AWS', 'CI/CD', 'Docker', 'Linux'],
       social: {
         linkedin: 'https://linkedin.com/in/david-kim-pm',
