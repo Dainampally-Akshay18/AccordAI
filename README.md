@@ -1,6 +1,22 @@
 # AccordAI 🚀
-A full-stack project with **FastAPI (backend)** and **React + Vite (frontend)**.  
-You can run locally or with **Docker Compose**.
+AccordAI is a full-stack AI-powered document analysis platform built with FastAPI (backend) and React + Vite (frontend).
+It allows users to upload and analyze documents of different formats such as PDF, DOCX, and JSON, and provides smart insights including:
+
+Risk Analysis → Detects potential risks, inconsistencies, or compliance issues.
+
+Summarization → Generates concise summaries of lengthy documents.
+
+Letter & Report Generation → Creates ready-to-use professional letter/report formats based on document content.
+
+AccordAI is designed to be lightweight, scalable, and developer-friendly, with the option to run locally or inside Docker containers for easy deployment.
+
+The project is split into two main parts:
+
+Backend (FastAPI) → Handles document parsing, AI-powered analysis, and APIs.
+
+Frontend (React + Vite) → Provides an interactive user interface to upload files, view results, and download generated outputs.
+
+Whether you are a student, researcher, or enterprise user, AccordAI helps you save time by automating the tedious parts of document analysis and presenting the results in a clean, user-friendly format.
 
 ---
 
