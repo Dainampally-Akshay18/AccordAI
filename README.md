@@ -50,7 +50,7 @@ pip install -r requirements.txt
 If `requirements.txt` is missing:
 
 ```bash
-pip install fastapi uvicorn
+uvicorn app.main:app --reload
 ```
 
 ### 2. Run
