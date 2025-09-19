@@ -82,7 +82,6 @@ const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent })
   );
 };
 
-
 // Expandable Text Component
 const ExpandableText = ({ text, limit = 800 }) => {
   const [expanded, setExpanded] = useState(false);
@@ -136,11 +135,10 @@ const RiskAnalysis = ({ documentInfo }) => {
       console.log('🔍 Starting risk analysis for:', docId);
       
       const response = await runRiskAnalysis(docId);
-
       if (response.success) {
         console.log('✅ Risk analysis successful:', response.data);
         setAnalysis(response.data);
-        setDebugInfo(Risk analysis complete: ${response.data.relevant_chunks?.length || 0} sections analyzed);
+        setDebugInfo(`Risk analysis complete: ${response.data.relevant_chunks?.length || 0} sections analyzed`);
       } else {
         console.error('❌ Risk analysis failed:', response.error);
         setError(response.error || 'Risk analysis failed');
@@ -149,7 +147,7 @@ const RiskAnalysis = ({ documentInfo }) => {
     } catch (err) {
       console.error('❌ Risk analysis error:', err);
       setError('Risk analysis failed. Please try again.');
-      setDebugInfo(Error: ${err.message});
+      setDebugInfo(`Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -204,7 +202,6 @@ const RiskAnalysis = ({ documentInfo }) => {
   // 📊 Prepare Chart Data
   const prepareChartData = () => {
     if (!analysis?.analysis) return {};
-
     const risks = analysis.analysis.risks || [];
     
     // 1. PIE CHART - Risk Distribution by Severity
@@ -280,7 +277,6 @@ const RiskAnalysis = ({ documentInfo }) => {
             </p>
           </div>
         </div>
-
         <div className="flex flex-wrap gap-4 items-center">
           <button 
             onClick={runAnalysis}
@@ -303,7 +299,6 @@ const RiskAnalysis = ({ documentInfo }) => {
               )}
             </div>
           </button>
-
           {analysis && (
             <button
               onClick={() => setShowCharts(!showCharts)}
@@ -392,15 +387,15 @@ const RiskAnalysis = ({ documentInfo }) => {
               {
                 icon: '📊',
                 label: 'Risk Score',
-                value: ${analysis.analysis?.risk_score?.toFixed(1) || 0.0}/10,
+                value: `${analysis.analysis?.risk_score?.toFixed(1) || 0.0}/10`,
                 color: 'from-blue-500 to-purple-500'
               }
             ].map((metric, index) => (
               <div key={index} className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 text-center hover:border-red-500/50 transition-all duration-300 hover:-translate-y-1">
-                <div className={w-16 h-16 bg-gradient-to-r ${metric.color} rounded-xl flex items-center justify-center mx-auto mb-4 text-2xl}>
+                <div className={`w-16 h-16 bg-gradient-to-r ${metric.color} rounded-xl flex items-center justify-center mx-auto mb-4 text-2xl`}>
                   {metric.icon}
                 </div>
-                <div className={text-3xl font-bold bg-gradient-to-r ${metric.color} bg-clip-text text-transparent mb-2}>
+                <div className={`text-3xl font-bold bg-gradient-to-r ${metric.color} bg-clip-text text-transparent mb-2`}>
                   {metric.value}
                 </div>
                 <div className="text-slate-400 text-sm uppercase tracking-wider font-semibold">
@@ -421,7 +416,6 @@ const RiskAnalysis = ({ documentInfo }) => {
                 </div>
                 <h3 className="text-2xl font-bold text-white">Interactive Risk Analytics</h3>
               </div>
-
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 {/* 📊 CHART 1: PIE CHART - Risk Distribution */}
                 <div className="bg-slate-900/60 rounded-2xl p-6 border border-slate-600/50">
@@ -445,7 +439,7 @@ const RiskAnalysis = ({ documentInfo }) => {
                       >
                         {riskDistribution.map((entry, index) => (
                           <Cell 
-                            key={cell-${index}} 
+                            key={`cell-${index}`} 
                             fill={entry.color}
                           />
                         ))}
@@ -599,23 +593,22 @@ const RiskAnalysis = ({ documentInfo }) => {
                 </div>
                 <span className="text-slate-400 text-sm">Highest risks displayed first</span>
               </div>
-
               <div className="space-y-4">
                 {analysis.analysis.risks.map((risk, index) => {
                   const colors = getRiskColor(risk.severity);
                   return (
                     <div 
                       key={index} 
-                      className={bg-gradient-to-r ${colors.bg} backdrop-blur-sm border ${colors.border} rounded-2xl p-6 hover:scale-[1.02] transition-all duration-300}
+                      className={`bg-gradient-to-r ${colors.bg} backdrop-blur-sm border ${colors.border} rounded-2xl p-6 hover:scale-[1.02] transition-all duration-300`}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                         <div className="flex-1">
                           <div className="flex flex-wrap items-center gap-3 mb-4">
                             <span className="text-2xl">⚠</span>
                             <h4 className="text-xl font-bold text-white">
-                              {risk.title || Risk ${index + 1}}
+                              {risk.title || `Risk ${index + 1}`}
                             </h4>
-                            <span className={px-3 py-1 ${colors.badge} rounded-full text-sm font-semibold uppercase tracking-wide}>
+                            <span className={`px-3 py-1 ${colors.badge} rounded-full text-sm font-semibold uppercase tracking-wide`}>
                               {risk.severity || 'Unknown'} Risk
                             </span>
                             <span className="text-slate-400 text-sm">
@@ -669,9 +662,7 @@ const RiskAnalysis = ({ documentInfo }) => {
               </div>
             </div>
           )}
-
          
-
           {/* Debug Information */}
           {debugInfo && (
             <div className="bg-slate-900/60 border border-slate-600/50 rounded-xl p-4">
