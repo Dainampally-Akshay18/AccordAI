@@ -30,7 +30,7 @@ const NegotiationAssistant = ({ documentInfo }) => {
       if (response.success) {
         console.log('✅ Negotiation analysis successful:', response.data);
         setAnalysis(response.data);
-        setDebugInfo(Templates generated: ${response.data.relevant_chunks?.length || 0} chunks analyzed with Pinecone Enhanced);
+        setDebugInfo(`Templates generated: ${response.data.relevant_chunks?.length || 0} chunks analyzed with Pinecone Enhanced`);;
       } else {
         console.error('❌ Negotiation analysis failed:', response.error);
         setError(response.error || 'Email generation failed');
