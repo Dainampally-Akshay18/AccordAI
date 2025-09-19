@@ -61,11 +61,10 @@ const DocumentSummarization = ({ documentInfo }) => {
       console.log('📄 Starting comprehensive document summary for:', docId);
       
       const response = await runDocumentSummary(docId);
-
       if (response.success) {
         console.log('✅ Comprehensive document summary successful:', response.data);
         setAnalysis(response.data);
-        setDebugInfo(Comprehensive analysis complete: ${response.data.relevant_chunks?.length || 0} sections analyzed);
+        setDebugInfo(`Comprehensive analysis complete: ${response.data.relevant_chunks?.length || 0} sections analyzed`);
       } else {
         console.error('❌ Document summary failed:', response.error);
         setError(response.error || 'Document summary failed');
@@ -74,7 +73,7 @@ const DocumentSummarization = ({ documentInfo }) => {
     } catch (err) {
       console.error('❌ Document summary error:', err);
       setError('Summary generation failed. Please try again.');
-      setDebugInfo(Error: ${err.message});
+      setDebugInfo(`Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -134,7 +133,6 @@ const DocumentSummarization = ({ documentInfo }) => {
             </p>
           </div>
         </div>
-
         <button 
           onClick={runAnalysis}
           disabled={loading}
@@ -199,7 +197,6 @@ const DocumentSummarization = ({ documentInfo }) => {
         <div className="space-y-8">
           {/* Enhanced Metrics Dashboard */}
           
-
           {/* Document Overview */}
           <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
             <div className="flex items-center gap-4 mb-6">
@@ -250,7 +247,6 @@ const DocumentSummarization = ({ documentInfo }) => {
                 </div>
               </div>
             </div>
-
             <div className="p-6">
               <div className="bg-slate-900/60 border border-slate-600/50 rounded-xl p-6">
                 <div className="space-y-4">
@@ -317,7 +313,7 @@ const DocumentSummarization = ({ documentInfo }) => {
                     className="p-2 text-slate-400 hover:text-white transition-colors"
                   >
                     <svg 
-                      className={w-5 h-5 transform transition-transform ${expandedSections.financial ? 'rotate-180' : ''}}
+                      className={`w-5 h-5 transform transition-transform ${expandedSections.financial ? 'rotate-180' : ''}`}
                       viewBox="0 0 24 24" 
                       fill="none"
                     >
@@ -326,7 +322,6 @@ const DocumentSummarization = ({ documentInfo }) => {
                   </button>
                 </div>
               </div>
-
               {expandedSections.financial && (
                 <div className="p-6">
                   <div className="grid md:grid-cols-3 gap-6">
@@ -366,7 +361,7 @@ const DocumentSummarization = ({ documentInfo }) => {
                     className="p-2 text-slate-400 hover:text-white transition-colors"
                   >
                     <svg 
-                      className={w-5 h-5 transform transition-transform ${expandedSections.timeline ? 'rotate-180' : ''}}
+                      className={`w-5 h-5 transform transition-transform ${expandedSections.timeline ? 'rotate-180' : ''}`}
                       viewBox="0 0 24 24" 
                       fill="none"
                     >
@@ -375,7 +370,6 @@ const DocumentSummarization = ({ documentInfo }) => {
                   </button>
                 </div>
               </div>
-
               {expandedSections.timeline && (
                 <div className="p-6">
                   <div className="grid md:grid-cols-2 gap-6">
@@ -414,7 +408,7 @@ const DocumentSummarization = ({ documentInfo }) => {
                     className="p-2 text-slate-400 hover:text-white transition-colors"
                   >
                     <svg 
-                      className={w-5 h-5 transform transition-transform ${expandedSections.obligations ? 'rotate-180' : ''}}
+                      className={`w-5 h-5 transform transition-transform ${expandedSections.obligations ? 'rotate-180' : ''}`}
                       viewBox="0 0 24 24" 
                       fill="none"
                     >
@@ -423,7 +417,6 @@ const DocumentSummarization = ({ documentInfo }) => {
                   </button>
                 </div>
               </div>
-
               {expandedSections.obligations && (
                 <div className="p-6">
                   <div className="space-y-6">
@@ -440,11 +433,8 @@ const DocumentSummarization = ({ documentInfo }) => {
               )}
             </div>
           )}
-
           
-
           
-
           {/* Debug Information */}
           {debugInfo && (
             <div className="bg-slate-900/60 border border-slate-600/50 rounded-xl p-4">
