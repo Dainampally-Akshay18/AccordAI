@@ -79,7 +79,7 @@ const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent })
       dominantBaseline="central"
       className="text-sm font-bold"
     >
-      {`${(percent * 100).toFixed(0)}%`}
+      {${(percent * 100).toFixed(0)}%}
     </text>
   );
 };
@@ -141,7 +141,7 @@ const RiskAnalysis = ({ documentInfo }) => {
       if (response.success) {
         console.log('✅ Risk analysis successful:', response.data);
         setAnalysis(response.data);
-        setDebugInfo(`Risk analysis complete: ${response.data.relevant_chunks?.length || 0} sections analyzed`);
+        setDebugInfo(Risk analysis complete: ${response.data.relevant_chunks?.length || 0} sections analyzed);
       } else {
         console.error('❌ Risk analysis failed:', response.error);
         setError(response.error || 'Risk analysis failed');
@@ -150,7 +150,7 @@ const RiskAnalysis = ({ documentInfo }) => {
     } catch (err) {
       console.error('❌ Risk analysis error:', err);
       setError('Risk analysis failed. Please try again.');
-      setDebugInfo(`Error: ${err.message}`);
+      setDebugInfo(Error: ${err.message});
     } finally {
       setLoading(false);
     }
@@ -359,6 +359,7 @@ const RiskAnalysis = ({ documentInfo }) => {
             </div>
             <div>
               <h3 className="text-xl font-bold text-white mb-2">Analyzing Document Risks</h3>
+              <h4 className="text-xl font-bold text-white mb-2">Please Hang on and Dont Click Anywhere  </h4>
               <p className="text-slate-400">{debugInfo}</p>
             </div>
           </div>
@@ -392,15 +393,15 @@ const RiskAnalysis = ({ documentInfo }) => {
               {
                 icon: '📊',
                 label: 'Risk Score',
-                value: `${analysis.analysis?.risk_score?.toFixed(1) || 0.0}/10`,
+                value: ${analysis.analysis?.risk_score?.toFixed(1) || 0.0}/10,
                 color: 'from-blue-500 to-purple-500'
               }
             ].map((metric, index) => (
               <div key={index} className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 text-center hover:border-red-500/50 transition-all duration-300 hover:-translate-y-1">
-                <div className={`w-16 h-16 bg-gradient-to-r ${metric.color} rounded-xl flex items-center justify-center mx-auto mb-4 text-2xl`}>
+                <div className={w-16 h-16 bg-gradient-to-r ${metric.color} rounded-xl flex items-center justify-center mx-auto mb-4 text-2xl}>
                   {metric.icon}
                 </div>
-                <div className={`text-3xl font-bold bg-gradient-to-r ${metric.color} bg-clip-text text-transparent mb-2`}>
+                <div className={text-3xl font-bold bg-gradient-to-r ${metric.color} bg-clip-text text-transparent mb-2}>
                   {metric.value}
                 </div>
                 <div className="text-slate-400 text-sm uppercase tracking-wider font-semibold">
@@ -445,7 +446,7 @@ const RiskAnalysis = ({ documentInfo }) => {
                       >
                         {riskDistribution.map((entry, index) => (
                           <Cell 
-                            key={`cell-${index}`} 
+                            key={cell-${index}} 
                             fill={entry.color}
                           />
                         ))}
@@ -606,16 +607,16 @@ const RiskAnalysis = ({ documentInfo }) => {
                   return (
                     <div 
                       key={index} 
-                      className={`bg-gradient-to-r ${colors.bg} backdrop-blur-sm border ${colors.border} rounded-2xl p-6 hover:scale-[1.02] transition-all duration-300`}
+                      className={bg-gradient-to-r ${colors.bg} backdrop-blur-sm border ${colors.border} rounded-2xl p-6 hover:scale-[1.02] transition-all duration-300}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                         <div className="flex-1">
                           <div className="flex flex-wrap items-center gap-3 mb-4">
-                            <span className="text-2xl">⚠️</span>
+                            <span className="text-2xl">⚠</span>
                             <h4 className="text-xl font-bold text-white">
-                              {risk.title || `Risk ${index + 1}`}
+                              {risk.title || Risk ${index + 1}}
                             </h4>
-                            <span className={`px-3 py-1 ${colors.badge} rounded-full text-sm font-semibold uppercase tracking-wide`}>
+                            <span className={px-3 py-1 ${colors.badge} rounded-full text-sm font-semibold uppercase tracking-wide}>
                               {risk.severity || 'Unknown'} Risk
                             </span>
                             <span className="text-slate-400 text-sm">
