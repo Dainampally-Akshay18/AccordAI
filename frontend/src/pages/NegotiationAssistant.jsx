@@ -30,7 +30,7 @@ const NegotiationAssistant = ({ documentInfo }) => {
       if (response.success) {
         console.log('✅ Negotiation analysis successful:', response.data);
         setAnalysis(response.data);
-        setDebugInfo(`Templates generated: ${response.data.relevant_chunks?.length || 0} chunks analyzed with Pinecone Enhanced`);
+        setDebugInfo(Templates generated: ${response.data.relevant_chunks?.length || 0} chunks analyzed with Pinecone Enhanced);
       } else {
         console.error('❌ Negotiation analysis failed:', response.error);
         setError(response.error || 'Email generation failed');
@@ -39,7 +39,7 @@ const NegotiationAssistant = ({ documentInfo }) => {
     } catch (err) {
       console.error('❌ Negotiation analysis error:', err);
       setError('Email generation failed. Please try again.');
-      setDebugInfo(`Error: ${err.message}`);
+      setDebugInfo(Error: ${err.message});
     } finally {
       setLoading(false);
     }
@@ -155,6 +155,7 @@ const NegotiationAssistant = ({ documentInfo }) => {
             </div>
             <div>
               <h3 className="text-xl font-bold text-white mb-2">Crafting Email Templates</h3>
+              <h4 className="text-xl font-bold text-white mb-2"> Please Hang on and Dont click Anywhere </h4>
               <p className="text-slate-400">{debugInfo}</p>
             </div>
             <div className="flex space-x-2">
@@ -162,7 +163,7 @@ const NegotiationAssistant = ({ documentInfo }) => {
                 <div
                   key={i}
                   className="w-3 h-3 bg-green-500 rounded-full animate-bounce"
-                  style={{ animationDelay: `${i * 0.2}s` }}
+                  style={{ animationDelay: ${i * 0.2}s }}
                 ></div>
               ))}
             </div>
