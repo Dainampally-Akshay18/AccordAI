@@ -26,11 +26,10 @@ const NegotiationAssistant = ({ documentInfo }) => {
       console.log('🤝 Starting negotiation analysis for:', docId);
       
       const response = await runNegotiationAssistant(docId);
-
       if (response.success) {
         console.log('✅ Negotiation analysis successful:', response.data);
         setAnalysis(response.data);
-        setDebugInfo(`Templates generated: ${response.data.relevant_chunks?.length || 0} chunks analyzed with Pinecone Enhanced`);;
+        setDebugInfo(`Templates generated: ${response.data.relevant_chunks?.length || 0} chunks analyzed with Pinecone Enhanced`);
       } else {
         console.error('❌ Negotiation analysis failed:', response.error);
         setError(response.error || 'Email generation failed');
@@ -39,7 +38,7 @@ const NegotiationAssistant = ({ documentInfo }) => {
     } catch (err) {
       console.error('❌ Negotiation analysis error:', err);
       setError('Email generation failed. Please try again.');
-      setDebugInfo(Error: ${err.message});
+      setDebugInfo(`Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -101,7 +100,6 @@ const NegotiationAssistant = ({ documentInfo }) => {
             </p>
           </div>
         </div>
-
         <button 
           onClick={runAnalysis}
           disabled={loading}
@@ -161,10 +159,10 @@ const NegotiationAssistant = ({ documentInfo }) => {
             <div className="flex space-x-2">
               {[...Array(3)].map((_, i) => (
                 <div
-                    key={i}
-                    className="w-3 h-3 bg-green-500 rounded-full animate-bounce"
-                    style={{ animationDelay: `${i * 0.2}s` }}  // Fixed with backticks
-                    ></div>
+                  key={i}
+                  className="w-3 h-3 bg-green-500 rounded-full animate-bounce"
+                  style={{ animationDelay: `${i * 0.2}s` }}
+                ></div>
               ))}
             </div>
           </div>
@@ -178,7 +176,6 @@ const NegotiationAssistant = ({ documentInfo }) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
            
           </div>
-
           {/* Email Templates Grid */}
           <div className="grid lg:grid-cols-2 gap-8">
             {/* Acceptance Email */}
@@ -222,7 +219,6 @@ const NegotiationAssistant = ({ documentInfo }) => {
                   </button>
                 </div>
               </div>
-
               {/* Email Content */}
               <div className="p-6">
                 <div className="bg-slate-900/60 border border-slate-600/50 rounded-xl p-6 min-h-80">
@@ -278,7 +274,6 @@ const NegotiationAssistant = ({ documentInfo }) => {
                   </button>
                 </div>
               </div>
-
               {/* Email Content */}
               <div className="p-6">
                 <div className="bg-slate-900/60 border border-slate-600/50 rounded-xl p-6 min-h-80">
@@ -291,7 +286,6 @@ const NegotiationAssistant = ({ documentInfo }) => {
               </div>
             </div>
           </div>
-
           
         </div>
       )}
