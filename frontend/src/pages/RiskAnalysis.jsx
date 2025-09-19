@@ -64,12 +64,10 @@ const CustomTooltip = ({ active, payload, label }) => {
 // 🎨 Custom Label Component for Pie Chart
 const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
   if (percent < 0.05) return null; // Hide labels for very small slices
-  
   const RADIAN = Math.PI / 180;
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
-
   return (
     <text 
       x={x} 
@@ -79,10 +77,11 @@ const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent })
       dominantBaseline="central"
       className="text-sm font-bold"
     >
-      {${(percent * 100).toFixed(0)}%}
+      {`${(percent * 100).toFixed(0)}%`}
     </text>
   );
 };
+
 
 // Expandable Text Component
 const ExpandableText = ({ text, limit = 800 }) => {
