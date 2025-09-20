@@ -148,7 +148,7 @@ const About = () => {
       name: 'Shek Shahid',
       role: 'Backend Developer',
       specialty: 'FastAPI',
-      bio: 'Marcus ensures our platform runs smoothly with enterprise-grade security. He manages our cloud infrastructure and CI/CD pipelines.',
+      bio: 'Shahid ensures our platform runs smoothly with enterprise-grade security. He manages our cloud infrastructure',
       image: 'https://res.cloudinary.com/dadapse5k/image/upload/v1758006488/shahid_zwaukj.jpg',
       skills: ['AWS', 'Docker', 'Kubernetes', 'Terraform'],
       social: {
