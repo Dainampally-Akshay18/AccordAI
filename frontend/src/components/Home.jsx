@@ -365,7 +365,7 @@ const Home = () => {
                     </p>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8">
-                    {['PDF', 'DOC', 'DOCX', 'TXT'].map((format) => (
+                    {['PDF'].map((format) => (
                       <div key={format} className="flex flex-col items-center gap-2 p-4 bg-slate-700/50 rounded-lg border border-slate-600/50">
                         <span className="text-2xl">📄</span>
                         <span className="text-sm font-semibold text-slate-300">{format}</span>
