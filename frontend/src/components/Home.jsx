@@ -22,12 +22,12 @@ const Home = () => {
   // Configuration
   const getApiBaseUrl = () => {
     if (typeof process !== 'undefined' && process.env) {
-      return process.env.REACT_APP_API_BASE_URL || 'http:localhost:8000/api/v1';
+      return process.env.REACT_APP_API_BASE_URL || 'https://accordai-mb59.onrender.com/api/v1';
     }
     if (window.REACT_APP_API_BASE_URL) {
       return window.REACT_APP_API_BASE_URL;
     }
-    return 'http://localhost:8000/api/v1';
+    return 'https://accordai-mb59.onrender.com/api/v1';
   };
 
   const API_BASE_URL = getApiBaseUrl();
