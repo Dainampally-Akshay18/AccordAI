@@ -5,8 +5,8 @@ import logging
 import asyncio
 from typing import Dict, Any, Optional
 from langchain_groq import ChatGroq
-from langchain.schema import HumanMessage, SystemMessage
-from langchain.prompts import PromptTemplate
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.prompts import PromptTemplate
 from app.config import settings
 
 logger = logging.getLogger(__name__)

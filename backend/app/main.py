@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from app.api.analysis import router as analysis_router
+from app.api.chatbot import chatbot_router
 
 from app.api.documents import router as doc_router
 from app.api.auth import authRoutes
@@ -33,6 +34,7 @@ app = FastAPI(
 
 app.include_router(authRoutes, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(analysis_router, prefix=f"{settings.API_V1_STR}/analysis", tags=["analysis"])
+app.include_router(chatbot_router, prefix=f"{settings.API_V1_STR}/chatbot", tags=["chatbot"])  # ✅ NEW
 app.include_router(doc_router, prefix=f"{settings.API_V1_STR}/documents", tags=["documents"])
 app.include_router(lang_router, prefix=f"{settings.API_V1_STR}/translate", tags=["languages"])
 app.include_router(translator_router, prefix=f"{settings.API_V1_STR}/translate", tags=["translate"])
