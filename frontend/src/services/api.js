@@ -60,7 +60,7 @@ api.interceptors.response.use(
   (error) => Promise.reject(error)
 );
 
-
+let __init_inflight = null;
 export const initializeSession = async () => {
   if (__init_inflight) return __init_inflight;
 
