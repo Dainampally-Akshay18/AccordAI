@@ -4,8 +4,23 @@ import Home from './components/Home';
 import About from './pages/About';
 import RagAnalysis from './pages/RagAnalysis';
 import Navbar from './components/Navbar';
+import { initializeSession } from './services/api.js';
 
 function App() {
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  useEffect(() => {
+    // Initialize session once on mount
+    const init = async () => {
+      try {
+        await initializeSession();
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+    init();
+  }, []);
+  
   return (
     <Router>
       <div className="App">
