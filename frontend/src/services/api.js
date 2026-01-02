@@ -60,47 +60,52 @@ api.interceptors.response.use(
   (error) => Promise.reject(error)
 );
 
-// Session management
-export const createSession = async () => {
-  try {
-    console.log("🔐 Creating new session...");
-    const response = await api.post("/auth/create-session", {
-      client_info: "web_client",
-    });
-    const { access_token, session_id } = response.data || {};
-    if (access_token) {
-      localStorage.setItem(TOKEN_KEY, access_token);
-    }
-    if (session_id) {
-      localStorage.setItem(SESSION_ID_KEY, session_id);
-    }
-    console.log("✅ Session created successfully");
-    return { access_token, session_id };
-  } catch (error) {
-    console.error("❌ Create session error:", error);
-    throw new Error(error?.response?.data?.detail || "Failed to create session");
-  }
-};
-
-let __init_inflight = null;
 
 export const initializeSession = async () => {
   if (__init_inflight) return __init_inflight;
-  console.log("🚀 Forcing new session initialization...");
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(SESSION_ID_KEY);
+
+  const existingToken = localStorage.getItem(TOKEN_KEY);
+
+  // Check if token exists and is still valid
+  if (existingToken && !isTokenExpired(existingToken)) {
+    console.log("✅ Valid session found, skipping initialization");
+    return { 
+      access_token: existingToken, 
+      session_id: localStorage.getItem(SESSION_ID_KEY) 
+    };
+  }
+
+  console.log("🚀 Session missing or expired. Initializing new session...");
+  
   __init_inflight = (async () => {
     try {
-      await createSession();
+      const { access_token, session_id } = await createSession();
+      return { access_token, session_id };
     } catch (error) {
-      console.error("Fatal: Could not initialize session on load.", error);
+      console.error("Fatal: Could not initialize session.", error);
     } finally {
       __init_inflight = null;
     }
   })();
+  
   return __init_inflight;
 };
 
+export const createSession = async () => {
+  try {
+    const response = await api.post("/auth/create-session", {
+      client_info: "web_client",
+    });
+    const { access_token, session_id } = response.data || {};
+    
+    if (access_token) localStorage.setItem(TOKEN_KEY, access_token);
+    if (session_id) localStorage.setItem(SESSION_ID_KEY, session_id);
+    
+    return { access_token, session_id };
+  } catch (error) {
+    throw new Error(error?.response?.data?.detail || "Failed to create session");
+  }
+};
 export const getSessionToken = () => localStorage.getItem(TOKEN_KEY);
 export const getSessionId = () => localStorage.getItem(SESSION_ID_KEY);
 
