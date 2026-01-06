@@ -72,6 +72,7 @@ const Login = () => {
         <div className="absolute bottom-20 right-5 w-80 h-80 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-full blur-3xl animate-pulse [animation-delay:1000ms]"></div>
       </div>
 
+
       {/* Login Card */}
       <div className="relative z-10 w-full max-w-md p-8 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
         
