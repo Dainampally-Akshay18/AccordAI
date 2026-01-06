@@ -1,12 +1,38 @@
-// Navbar.jsx - Complete Tailwind CSS Version
+// Navbar.jsx - With Login/Logout Functionality
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from '../utils/firebase'; // Ensure path is correct
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [user, setUser] = useState(null); // Track auth state
+  
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // --- Auth Listener ---
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // --- Logout Handler ---
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      // Optional: Clear any local storage data if you used it
+      localStorage.removeItem('current_document'); 
+      navigate('/login');
+      setIsMobileMenuOpen(false);
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  };
 
   // Handle scroll effect
   useEffect(() => {
@@ -88,11 +114,11 @@ const Navbar = () => {
             </div>
 
             {/* Mobile Navigation */}
-            <nav className="flex-1 py-6">
+            <nav className="flex-1 py-6 flex flex-col gap-2">
               <Link 
-                to="/" 
+                to="/home" 
                 className={`flex items-center gap-4 px-6 py-4 text-lg font-semibold transition-all border-r-4 ${
-                  isActiveLink('/') 
+                  isActiveLink('/home') 
                     ? 'text-blue-400 bg-blue-500/10 border-blue-500' 
                     : 'text-slate-300 hover:text-white hover:bg-slate-800/50 border-transparent'
                 }`}
@@ -105,11 +131,6 @@ const Navbar = () => {
                   </svg>
                 </div>
                 <span>Home</span>
-                <div className="ml-auto w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <polyline points="9,18 15,12 9,6" stroke="currentColor" strokeWidth="2"/>
-                  </svg>
-                </div>
               </Link>
 
               <Link 
@@ -128,20 +149,38 @@ const Navbar = () => {
                   </svg>
                 </div>
                 <span>About</span>
-                <div className="ml-auto w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <polyline points="9,18 15,12 9,6" stroke="currentColor" strokeWidth="2"/>
-                  </svg>
-                </div>
               </Link>
             </nav>
 
-            {/* Mobile Footer */}
+            {/* Mobile Footer (Auth Buttons) */}
             <div className="p-6 border-t border-slate-700/50">
-              <div className="flex items-center gap-3 px-4 py-3 bg-slate-800/50 rounded-xl">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-slate-300 font-medium">Online</span>
-              </div>
+              {user ? (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-3 px-4 py-3 bg-slate-800/50 rounded-xl">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white">
+                      {user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-slate-200 font-medium text-sm">Signed in as</span>
+                      <span className="text-slate-400 text-xs truncate max-w-[150px]">{user.email}</span>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl font-semibold transition-all"
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <Link 
+                  to="/login"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="block w-full text-center py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all"
+                >
+                  Login
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -156,7 +195,7 @@ const Navbar = () => {
         <div className="max-w-7xl mx-auto px-4 h-full">
           <div className="flex items-center justify-between h-full">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-3 hover:scale-105 transition-transform duration-300">
+            <Link to="/home" className="flex items-center gap-3 hover:scale-105 transition-transform duration-300">
               <div className="relative">
                 <div className={`bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg ${
                   isScrolled ? 'w-10 h-10' : 'w-12 h-12'
@@ -185,22 +224,16 @@ const Navbar = () => {
             {/* Desktop Navigation */}
             <div className="hidden lg:flex items-center space-x-8">
               <Link 
-                to="/" 
+                to="/home" 
                 className={`relative group flex items-center gap-2 px-4 py-2 font-semibold transition-all duration-300 ${
-                  isActiveLink('/') 
+                  isActiveLink('/home') 
                     ? 'text-blue-400' 
                     : 'text-slate-300 hover:text-white hover:-translate-y-0.5'
                 }`}
               >
-                <div className="w-5 h-5">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" strokeWidth="2"/>
-                    <polyline points="9,22 9,12 15,12 15,22" stroke="currentColor" strokeWidth="2"/>
-                  </svg>
-                </div>
                 <span>Home</span>
                 <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 ${
-                  isActiveLink('/') ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'
+                  isActiveLink('/home') ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'
                 }`}></div>
               </Link>
 
@@ -212,23 +245,49 @@ const Navbar = () => {
                     : 'text-slate-300 hover:text-white hover:-translate-y-0.5'
                 }`}
               >
-                <div className="w-5 h-5">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" strokeWidth="2"/>
-                    <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
-                  </svg>
-                </div>
                 <span>About</span>
                 <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300 ${
                   isActiveLink('/about') ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'
                 }`}></div>
               </Link>
 
-              {/* Status Indicator */}
-              <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/50 backdrop-blur-sm border border-blue-500/30 rounded-full">
+              {/* Status Indicator (Only show if logged in, optional) */}
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 backdrop-blur-sm border border-blue-500/30 rounded-full">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-slate-300">Online</span>
+                <span className="text-xs font-medium text-slate-300">Online</span>
               </div>
+
+              {/* Divider */}
+              <div className="h-6 w-px bg-slate-700/50"></div>
+
+              {/* Desktop Auth Buttons */}
+              {user ? (
+                <div className="flex items-center gap-4">
+                  {/* User Profile Pill */}
+                  <div className="flex items-center gap-3 pl-1 pr-4 py-1 bg-slate-800/50 border border-slate-700 rounded-full">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white shadow-lg">
+                      {user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-sm text-slate-200 hidden xl:block">
+                      {user.displayName || user.email.split('@')[0]}
+                    </span>
+                  </div>
+                  
+                  <button 
+                    onClick={handleLogout}
+                    className="text-slate-400 hover:text-white font-medium text-sm transition-colors"
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : (
+                <Link 
+                  to="/login"
+                  className="relative group px-6 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 transition-all duration-300 hover:-translate-y-0.5"
+                >
+                  <span>Login</span>
+                </Link>
+              )}
             </div>
 
             {/* Mobile Menu Button */}

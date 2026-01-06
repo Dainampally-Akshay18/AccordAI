@@ -1,162 +1,140 @@
-# auth.py
-from fastapi import APIRouter, HTTPException, Depends
+# app/api/auth.py
+import logging
+import os
+from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
-import jwt
-from datetime import datetime, timedelta, timezone
-import uuid
-import logging
+import firebase_admin
+from firebase_admin import auth, credentials
 from app.config import settings
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
-# JWT Configuration
-JWT_SECRET_KEY = settings.JWT_SECRET_KEY if hasattr(settings, 'JWT_SECRET_KEY') else "your-super-secret-jwt-key-change-in-production"
-JWT_ALGORITHM = "HS256"
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
+# --- 1. Firebase Initialization ---
+# We ensure Firebase is initialized only once to avoid errors
+try:
+    if not firebase_admin._apps:
+        # Strategy 1: Try Environment Variables (Render/Cloud Deployment)
+        if settings.FIREBASE_PROJECT_ID and settings.FIREBASE_PRIVATE_KEY and settings.FIREBASE_CLIENT_EMAIL:
+            # Handle private key formatting (restore newlines if they were escaped)
+            private_key = settings.FIREBASE_PRIVATE_KEY.replace('\\n', '\n')
+            
+            cred_dict = {
+                "type": "service_account",
+                "project_id": settings.FIREBASE_PROJECT_ID,
+                "private_key_id": "obtained-from-env",
+                "private_key": private_key,
+                "client_email": settings.FIREBASE_CLIENT_EMAIL,
+                "client_id": "obtained-from-env",
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{settings.FIREBASE_CLIENT_EMAIL}"
+            }
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            logger.info("✅ Firebase initialized using Environment Variables.")
+            
+        # Strategy 2: Try Local JSON File (Local Development)
+        else:
+            cred_path = os.path.join(os.getcwd(), "firebase-service-account.json")
+            if os.path.exists(cred_path):
+                cred = credentials.Certificate(cred_path)
+                firebase_admin.initialize_app(cred)
+                logger.info(f"✅ Firebase initialized using JSON file: {cred_path}")
+            else:
+                logger.warning("⚠️ Firebase credentials not found. Authentication will fail.")
 
-class SessionRequest(BaseModel):
-    client_info: str = "web_client"
+except Exception as e:
+    logger.error(f"❌ Failed to initialize Firebase: {str(e)}")
 
-class SessionResponse(BaseModel):
-    access_token: str
-    token_type: str
-    expires_in: int
-    session_id: str
-    created_at: str
-
-class TokenValidationResponse(BaseModel):
+# --- 2. Models ---
+class TokenVerificationResponse(BaseModel):
     valid: bool
-    session_id: str
-    expires_at: str
-    created_at: str
+    uid: str
+    email: str | None
+    name: str | None
+    picture: str | None
 
-def create_access_token(data: dict, expires_delta: timedelta = None):
-    """Create JWT access token"""
-    to_encode = data.copy()
-    
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
-    
-    to_encode.update({
-        "exp": expire,
-        "iat": datetime.now(timezone.utc),
-        "type": "access_token"
-    })
-    
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
-    return encoded_jwt
+class LoginRequest(BaseModel):
+    id_token: str
 
-def verify_token(token: str) -> dict:
-    """Verify and decode JWT token"""
-    try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+# --- 3. Dependencies ---
 
-async def get_current_session(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Dependency to get current session from JWT token"""
+async def verify_firebase_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    """
+    Validates the Bearer token sent by the frontend against Firebase.
+    Returns the decoded token (user info) if valid.
+    """
     token = credentials.credentials
-    payload = verify_token(token)
-    
+    try:
+        # Verify the ID token while checking if the token is revoked
+        decoded_token = auth.verify_id_token(token, check_revoked=True)
+        return decoded_token
+    except auth.RevokedIdTokenError:
+        logger.error("❌ Token revoked")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked"
+        )
+    except auth.ExpiredIdTokenError:
+        logger.error("❌ Token expired")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired"
+        )
+    except Exception as e:
+        logger.error(f"❌ Authentication error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+
+async def get_current_session(decoded_token: dict = Depends(verify_firebase_token)):
+    """
+    Dependency to get the current user session.
+    This ensures consistent User IDs across Upload and Analysis.
+    """
     return {
-        "session_id": payload.get("session_id"),
-        "created_at": payload.get("created_at"),
-        "expires_at": payload.get("exp")
+        "session_id": decoded_token.get("uid"),  # This is the real User ID
+        "email": decoded_token.get("email"),
+        "created_at": decoded_token.get("auth_time")
     }
 
-@router.post("/create-session", response_model=SessionResponse)
-async def create_session(request: SessionRequest):
-    """Create a new session with JWT token"""
-    try:
-        # Generate unique session ID
-        session_id = f"session_{uuid.uuid4().hex}_{int(datetime.now().timestamp())}"
-        created_at = datetime.now(timezone.utc).isoformat()
-        
-        # Create token payload
-        token_data = {
-            "session_id": session_id,
-            "client_info": request.client_info,
-            "created_at": created_at
-        }
-        
-        # Create JWT token
-        access_token = create_access_token(data=token_data)
-        
-        logger.info(f"Created new session: {session_id}")
-        
-        return SessionResponse(
-            access_token=access_token,
-            token_type="bearer",
-            expires_in=JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # in seconds
-            session_id=session_id,
-            created_at=created_at
-        )
-        
-    except Exception as e:
-        logger.error(f"Failed to create session: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to create session")
+# --- 4. Routes ---
 
-@router.post("/validate-token", response_model=TokenValidationResponse)
-async def validate_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Validate JWT token and return session info"""
+@router.post("/login", response_model=TokenVerificationResponse)
+async def login(request: LoginRequest):
     try:
-        payload = verify_token(credentials.credentials)
-        
-        return TokenValidationResponse(
+        decoded_token = auth.verify_id_token(request.id_token)
+        return TokenVerificationResponse(
             valid=True,
-            session_id=payload.get("session_id"),
-            expires_at=datetime.fromtimestamp(payload.get("exp"), tz=timezone.utc).isoformat(),
-            created_at=payload.get("created_at")
+            uid=decoded_token.get("uid"),
+            email=decoded_token.get("email"),
+            name=decoded_token.get("name"),
+            picture=decoded_token.get("picture")
         )
-        
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Token validation error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Token validation failed")
+        logger.error(f"Login validation failed: {str(e)}")
+        raise HTTPException(status_code=400, detail="Invalid login token")
 
-@router.post("/refresh-token")
-async def refresh_token(current_session: dict = Depends(get_current_session)):
-    """Refresh JWT token"""
-    try:
-        # Create new token with same session data
-        token_data = {
-            "session_id": current_session["session_id"],
-            "client_info": "web_client",
-            "created_at": current_session["created_at"]
-        }
-        
-        new_token = create_access_token(data=token_data)
-        
-        return {
-            "access_token": new_token,
-            "token_type": "bearer",
-            "expires_in": JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            "session_id": current_session["session_id"]
-        }
-        
-    except Exception as e:
-        logger.error(f"Token refresh failed: {str(e)}")
-        raise HTTPException(status_code=500, detail="Token refresh failed")
+@router.get("/validate-token")
+async def validate_token(decoded_token: dict = Depends(verify_firebase_token)):
+    return {
+        "valid": True,
+        "session_id": decoded_token.get("uid"),
+        "email": decoded_token.get("email")
+    }
 
 @router.get("/session-info")
 async def get_session_info(current_session: dict = Depends(get_current_session)):
-    """Get current session information"""
     return {
         "session_id": current_session["session_id"],
-        "created_at": current_session["created_at"],
-        "expires_at": datetime.fromtimestamp(current_session["expires_at"], tz=timezone.utc).isoformat(),
+        "email": current_session.get("email"),
         "status": "active",
-        "token_valid": True
+        "provider": "firebase"
     }
 
-# Export router
 authRoutes = router

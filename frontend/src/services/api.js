@@ -1,14 +1,12 @@
-// api.js - Updated with Chatbot API calls
+// frontend/src/services/api.js
 import axios from "axios";
+import { auth } from "../utils/firebase"; // Ensure this file exists!
 
 // Config
 const API_BASE_URL =
   import.meta?.env?.VITE_API_BASE_URL ||
   window?.REACT_APP_API_BASE_URL ||
-  "https://accordai-mb59.onrender.com/api/v1";
-
-const TOKEN_KEY = "access_token";
-const SESSION_ID_KEY = "session_id";
+  "http://localhost:8000/api/v1";
 
 // Axios instance
 const api = axios.create({
@@ -17,38 +15,19 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// JWT helpers
-function parseJwt(token) {
-  try {
-    const base64Url = token.split(".")[1];
-    if (!base64Url) return null;
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split("")
-        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-        .join("")
-    );
-    return JSON.parse(jsonPayload);
-  } catch {
-    return null;
-  }
-}
-
-function isTokenExpired(token) {
-  const data = parseJwt(token);
-  if (!data?.exp) return false;
-  const now = Math.floor(Date.now() / 1000);
-  return data.exp <= now;
-}
-
-// Interceptors
+// --- Security Interceptor ---
+// Automatically attaches the Firebase ID Token to every request
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (token) {
-      config.headers = config.headers || {};
-      config.headers.Authorization = `Bearer ${token}`;
+  async (config) => {
+    try {
+      const user = auth.currentUser;
+      if (user) {
+        // getIdToken() returns a valid JWT, refreshing it if necessary
+        const token = await user.getIdToken();
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.error("Error fetching Firebase token:", error);
     }
     return config;
   },
@@ -60,56 +39,43 @@ api.interceptors.response.use(
   (error) => Promise.reject(error)
 );
 
-let __init_inflight = null;
+// --- Session Management ---
+
 export const initializeSession = async () => {
-  if (__init_inflight) return __init_inflight;
-
-  const existingToken = localStorage.getItem(TOKEN_KEY);
-
-  // Check if token exists and is still valid
-  if (existingToken && !isTokenExpired(existingToken)) {
-    console.log("✅ Valid session found, skipping initialization");
-    return { 
-      access_token: existingToken, 
-      session_id: localStorage.getItem(SESSION_ID_KEY) 
-    };
-  }
-
-  console.log("🚀 Session missing or expired. Initializing new session...");
-  
-  __init_inflight = (async () => {
-    try {
-      const { access_token, session_id } = await createSession();
-      return { access_token, session_id };
-    } catch (error) {
-      console.error("Fatal: Could not initialize session.", error);
-    } finally {
-      __init_inflight = null;
-    }
-  })();
-  
-  return __init_inflight;
-};
-
-export const createSession = async () => {
+  // With Firebase, "session" is handled by the Auth Provider.
+  // We just check if we can reach the backend.
   try {
-    const response = await api.post("/auth/create-session", {
-      client_info: "web_client",
-    });
-    const { access_token, session_id } = response.data || {};
+    // Wait a moment for Firebase to initialize auth state
+    await new Promise(resolve => setTimeout(resolve, 500));
     
-    if (access_token) localStorage.setItem(TOKEN_KEY, access_token);
-    if (session_id) localStorage.setItem(SESSION_ID_KEY, session_id);
-    
-    return { access_token, session_id };
+    if (!auth.currentUser) {
+      console.log("Waiting for user login...");
+      return null;
+    }
+
+    // Optional: Validate token with backend to ensure user exists there
+    const validation = await validateToken();
+    return validation.data;
   } catch (error) {
-    throw new Error(error?.response?.data?.detail || "Failed to create session");
+    console.warn("Session check failed (user might be logged out):", error);
+    return null;
   }
 };
-export const getSessionToken = () => localStorage.getItem(TOKEN_KEY);
-export const getSessionId = () => localStorage.getItem(SESSION_ID_KEY);
 
-// Document APIs
+export const getSessionToken = async () => {
+    if (auth.currentUser) {
+        return await auth.currentUser.getIdToken();
+    }
+    return null;
+};
+
+export const getSessionId = () => {
+    // In Firebase, the UID is the permanent session ID
+    return auth.currentUser ? auth.currentUser.uid : null;
+};
+
+// --- Document APIs ---
+
 export const storeDocumentChunks = async (documentData) => {
   try {
     const resp = await api.post("/documents/store-chunks", documentData);
@@ -122,7 +88,8 @@ export const storeDocumentChunks = async (documentData) => {
   }
 };
 
-// Analysis APIs
+// --- Analysis APIs ---
+
 export const runRiskAnalysis = async (documentId, jurisdiction = "US") => {
   try {
     const resp = await api.post("/analysis/risk-analysis", {
@@ -192,10 +159,11 @@ export const runRagAnalysis = async (analysisData) => {
   }
 };
 
-// ✅ NEW: Chatbot APIs
+// --- Chatbot APIs ---
+
 export const sendChatMessage = async (chatData) => {
   try {
-    console.log("💬 Sending chat message:", chatData);
+    // console.log("💬 Sending chat message:", chatData);
     const resp = await api.post("/chatbot/chat", chatData);
     return { success: true, data: resp.data };
   } catch (err) {
@@ -255,10 +223,11 @@ export const getChatbotHealth = async () => {
   }
 };
 
-// Auth APIs
+// --- Auth APIs ---
+
 export const validateToken = async () => {
   try {
-    const resp = await api.post("/auth/validate-token");
+    const resp = await api.get("/auth/validate-token"); // Changed to GET as per updated backend
     return { success: true, data: resp.data };
   } catch (err) {
     return {
@@ -277,6 +246,19 @@ export const getSessionInfo = async () => {
       success: false,
       error: err?.response?.data?.detail || "Failed to get session info",
     };
+  }
+};
+
+// Backend Login Trigger (Optional)
+// Use this if you want to explicitly register the user in your DB after Firebase login
+export const backendLogin = async () => {
+  try {
+    const token = await auth.currentUser.getIdToken();
+    const resp = await api.post("/auth/login", { id_token: token });
+    return { success: true, data: resp.data };
+  } catch (err) {
+    console.error("Backend login sync failed", err);
+    return { success: false, error: "Backend sync failed" };
   }
 };
 

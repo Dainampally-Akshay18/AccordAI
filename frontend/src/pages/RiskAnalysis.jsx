@@ -1,4 +1,7 @@
-// RiskAnalysis.jsx - Complete with Attractive Charts and Fixed Tooltips
+// RiskAnalysis.jsx - Complete with Attractive Charts and Enhanced Backend Integration
+// ✨ ENHANCED: Displays overall_assessment, section_reference, quality_warnings
+// ✅ YOUR ORIGINAL COLOR THEME PRESERVED 100%
+
 import React, { useState, useEffect } from 'react';
 import { runRiskAnalysis } from '../services/api';
 import { 
@@ -63,7 +66,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 // 🎨 Custom Label Component for Pie Chart
 const renderPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-  if (percent < 0.05) return null; // Hide labels for very small slices
+  if (percent < 0.05) return null;
   const RADIAN = Math.PI / 180;
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
@@ -204,7 +207,6 @@ const RiskAnalysis = ({ documentInfo }) => {
     if (!analysis?.analysis) return {};
     const risks = analysis.analysis.risks || [];
     
-    // 1. PIE CHART - Risk Distribution by Severity
     const riskDistribution = [
       {
         name: 'High Risk',
@@ -223,7 +225,6 @@ const RiskAnalysis = ({ documentInfo }) => {
       }
     ].filter(item => item.value > 0);
 
-    // 2. BAR CHART 1 - Risk Categories
     const categoryData = [
       { name: 'Financial', count: risks.filter(r => r.title?.toLowerCase().includes('service bond') || r.title?.toLowerCase().includes('payment')).length },
       { name: 'Legal', count: risks.filter(r => r.title?.toLowerCase().includes('confidential') || r.title?.toLowerCase().includes('compliance')).length },
@@ -231,14 +232,12 @@ const RiskAnalysis = ({ documentInfo }) => {
       { name: 'Termination', count: risks.filter(r => r.title?.toLowerCase().includes('termination') || r.title?.toLowerCase().includes('employment')).length }
     ].filter(item => item.count > 0);
 
-    // 3. BAR CHART 2 - Risk Impact Analysis  
     const impactData = [
       { severity: 'High', impact: risks.filter(r => r.severity?.toLowerCase() === 'high').length * 3 },
       { severity: 'Medium', impact: risks.filter(r => r.severity?.toLowerCase() === 'medium').length * 2 },
       { severity: 'Low', impact: risks.filter(r => r.severity?.toLowerCase() === 'low').length * 1 }
     ];
 
-    // 4. AREA CHART - Risk Score Timeline (simulated)
     const timelineData = [
       { month: 'Jan', score: (analysis.analysis.risk_score || 5) * 0.6 },
       { month: 'Feb', score: (analysis.analysis.risk_score || 5) * 0.7 },
@@ -353,9 +352,52 @@ const RiskAnalysis = ({ documentInfo }) => {
             </div>
             <div>
               <h3 className="text-xl font-bold text-white mb-2">Analyzing Document Risks</h3>
-              <h4 className="text-xl font-bold text-white mb-2">Please Hang on and Dont Click Anywhere  </h4>
+              <h4 className="text-xl font-bold text-white mb-2">Please Hang on and Dont Click Anywhere</h4>
               <p className="text-slate-400">{debugInfo}</p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 NEW: Quality Warnings Display */}
+      {analysis?.analysis?._quality_warnings && analysis.analysis._quality_warnings.length > 0 && (
+        <div className="bg-yellow-500/10 backdrop-blur-sm border border-yellow-500/30 rounded-xl p-6 mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-yellow-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-yellow-400" viewBox="0 0 24 24" fill="none">
+                <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke="currentColor" strokeWidth="2"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-yellow-300 font-semibold mb-2">⚠️ Analysis Quality Notes</h3>
+              <ul className="space-y-1">
+                {analysis.analysis._quality_warnings.map((warning, idx) => (
+                  <li key={idx} className="text-yellow-400 text-sm">• {warning}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 NEW: Overall Assessment Card */}
+      {analysis?.analysis?.overall_assessment && (
+        <div className="bg-gradient-to-r from-blue-500/20 to-purple-500/20 backdrop-blur-sm border border-blue-500/50 rounded-2xl p-6 mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
+              <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none">
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white">Overall Risk Assessment</h3>
+              <p className="text-blue-200 text-sm">Expert analysis summary</p>
+            </div>
+          </div>
+          <div className="bg-slate-900/60 border border-slate-600/50 rounded-xl p-4">
+            <p className="text-slate-200 leading-relaxed">
+              {analysis.analysis.overall_assessment}
+            </p>
           </div>
         </div>
       )}
@@ -405,7 +447,7 @@ const RiskAnalysis = ({ documentInfo }) => {
             ))}
           </div>
 
-          {/* 🎨 ATTRACTIVE CHARTS SECTION */}
+          {/* 🎨 CHARTS SECTION */}
           {showCharts && analysis.analysis?.risks && (
             <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
               <div className="flex items-center gap-3 mb-8">
@@ -417,7 +459,7 @@ const RiskAnalysis = ({ documentInfo }) => {
                 <h3 className="text-2xl font-bold text-white">Interactive Risk Analytics</h3>
               </div>
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-                {/* 📊 CHART 1: PIE CHART - Risk Distribution */}
+                {/* PIE CHART */}
                 <div className="bg-slate-900/60 rounded-2xl p-6 border border-slate-600/50">
                   <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
                     <span className="w-3 h-3 bg-red-500 rounded-full"></span>
@@ -438,54 +480,28 @@ const RiskAnalysis = ({ documentInfo }) => {
                         stroke="#1e293b"
                       >
                         {riskDistribution.map((entry, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={entry.color}
-                          />
+                          <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
                       <Tooltip content={<CustomTooltip />} />
-                      <Legend 
-                        wrapperStyle={{ color: '#fff' }}
-                        iconType="circle"
-                      />
+                      <Legend wrapperStyle={{ color: '#fff' }} iconType="circle" />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
 
-                {/* 📊 CHART 2: BAR CHART 1 - Risk Categories */}
+                {/* BAR CHART 1 */}
                 <div className="bg-slate-900/60 rounded-2xl p-6 border border-slate-600/50">
                   <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
                     <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
                     Risk Categories Analysis
                   </h4>
                   <ResponsiveContainer width="100%" height={320}>
-                    <BarChart 
-                      data={categoryData} 
-                      margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                    >
+                    <BarChart data={categoryData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-                      <XAxis 
-                        dataKey="name" 
-                        stroke="#94a3b8"
-                        fontSize={12}
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                      />
-                      <YAxis 
-                        allowDecimals={false}
-                        stroke="#94a3b8"
-                        fontSize={12}
-                      />
+                      <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} angle={-45} textAnchor="end" height={80} />
+                      <YAxis allowDecimals={false} stroke="#94a3b8" fontSize={12} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar 
-                        dataKey="count" 
-                        fill="url(#colorGradient1)"
-                        radius={[4, 4, 0, 0]}
-                        strokeWidth={1}
-                        stroke="#42A5F5"
-                      />
+                      <Bar dataKey="count" fill="url(#colorGradient1)" radius={[4, 4, 0, 0]} strokeWidth={1} stroke="#42A5F5" />
                       <defs>
                         <linearGradient id="colorGradient1" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#42A5F5" stopOpacity={0.9}/>
@@ -496,36 +512,19 @@ const RiskAnalysis = ({ documentInfo }) => {
                   </ResponsiveContainer>
                 </div>
 
-                {/* 📊 CHART 3: BAR CHART 2 - Risk Impact */}
+                {/* BAR CHART 2 */}
                 <div className="bg-slate-900/60 rounded-2xl p-6 border border-slate-600/50">
                   <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
                     <span className="w-3 h-3 bg-purple-500 rounded-full"></span>
                     Risk Impact Assessment
                   </h4>
                   <ResponsiveContainer width="100%" height={320}>
-                    <BarChart 
-                      data={impactData} 
-                      margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                    >
+                    <BarChart data={impactData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-                      <XAxis 
-                        dataKey="severity" 
-                        stroke="#94a3b8"
-                        fontSize={12}
-                      />
-                      <YAxis 
-                        allowDecimals={false}
-                        stroke="#94a3b8"
-                        fontSize={12}
-                      />
+                      <XAxis dataKey="severity" stroke="#94a3b8" fontSize={12} />
+                      <YAxis allowDecimals={false} stroke="#94a3b8" fontSize={12} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar 
-                        dataKey="impact" 
-                        fill="url(#colorGradient2)"
-                        radius={[4, 4, 0, 0]}
-                        strokeWidth={1}
-                        stroke="#AB47BC"
-                      />
+                      <Bar dataKey="impact" fill="url(#colorGradient2)" radius={[4, 4, 0, 0]} strokeWidth={1} stroke="#AB47BC" />
                       <defs>
                         <linearGradient id="colorGradient2" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#AB47BC" stopOpacity={0.9}/>
@@ -536,36 +535,19 @@ const RiskAnalysis = ({ documentInfo }) => {
                   </ResponsiveContainer>
                 </div>
 
-                {/* 📊 CHART 4: AREA CHART - Risk Score Timeline */}
+                {/* AREA CHART */}
                 <div className="bg-slate-900/60 rounded-2xl p-6 border border-slate-600/50">
                   <h4 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
                     <span className="w-3 h-3 bg-green-500 rounded-full"></span>
                     Risk Score Progression
                   </h4>
                   <ResponsiveContainer width="100%" height={320}>
-                    <AreaChart 
-                      data={timelineData}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                    >
+                    <AreaChart data={timelineData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-                      <XAxis 
-                        dataKey="month" 
-                        stroke="#94a3b8"
-                        fontSize={12}
-                      />
-                      <YAxis 
-                        domain={[0, 10]}
-                        stroke="#94a3b8"
-                        fontSize={12}
-                      />
+                      <XAxis dataKey="month" stroke="#94a3b8" fontSize={12} />
+                      <YAxis domain={[0, 10]} stroke="#94a3b8" fontSize={12} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Area
-                        type="monotone"
-                        dataKey="score"
-                        stroke="#26C6DA"
-                        strokeWidth={3}
-                        fill="url(#colorGradient3)"
-                      />
+                      <Area type="monotone" dataKey="score" stroke="#26C6DA" strokeWidth={3} fill="url(#colorGradient3)" />
                       <defs>
                         <linearGradient id="colorGradient3" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#26C6DA" stopOpacity={0.8}/>
@@ -579,7 +561,7 @@ const RiskAnalysis = ({ documentInfo }) => {
             </div>
           )}
 
-          {/* Risk Details - Ranked by Severity */}
+          {/* Risk Details */}
           {analysis.analysis?.risks && analysis.analysis.risks.length > 0 && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
@@ -611,6 +593,12 @@ const RiskAnalysis = ({ documentInfo }) => {
                             <span className={`px-3 py-1 ${colors.badge} rounded-full text-sm font-semibold uppercase tracking-wide`}>
                               {risk.severity || 'Unknown'} Risk
                             </span>
+                            {/* 🆕 NEW: Section Reference Badge */}
+                            {risk.section_reference && (
+                              <span className="px-3 py-1 bg-blue-500/20 text-blue-300 border border-blue-500/50 rounded-full text-sm font-semibold">
+                                📄 {risk.section_reference}
+                              </span>
+                            )}
                             <span className="text-slate-400 text-sm">
                               Priority #{index + 1}
                             </span>
@@ -620,7 +608,6 @@ const RiskAnalysis = ({ documentInfo }) => {
                             <ExpandableText text={risk.description || 'No description available'} />
                           </div>
                           
-                          {/* Additional Risk Details */}
                           {risk.recommendation && (
                             <div className="bg-slate-800/60 border border-slate-600/50 rounded-xl p-4">
                               <h5 className="text-white font-semibold mb-2 flex items-center gap-2">
@@ -663,7 +650,7 @@ const RiskAnalysis = ({ documentInfo }) => {
             </div>
           )}
          
-          {/* Debug Information */}
+          {/* Debug Info */}
           {debugInfo && (
             <div className="bg-slate-900/60 border border-slate-600/50 rounded-xl p-4">
               <div className="flex items-center gap-2 text-sm">

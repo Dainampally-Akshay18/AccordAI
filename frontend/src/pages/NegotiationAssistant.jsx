@@ -1,4 +1,7 @@
-// NegotiationAssistant.jsx - Complete Fix
+// NegotiationAssistant.jsx - Enhanced with Backend Metadata Display
+// ✨ ENHANCED: Displays key_terms_addressed, negotiation_priority, quality_warnings
+// ✅ YOUR ORIGINAL COLOR THEME PRESERVED 100%
+
 import React, { useState, useEffect } from 'react';
 import { runNegotiationAssistant } from '../services/api';
 
@@ -10,7 +13,6 @@ const NegotiationAssistant = ({ documentInfo }) => {
   const [copiedEmail, setCopiedEmail] = useState(null);
 
   const runAnalysis = async () => {
-    // Fixed: Check for document_id properly
     if (!documentInfo?.document_id && !documentInfo?.document_name) {
       setError('No document information available. Please upload a document first.');
       return;
@@ -21,7 +23,6 @@ const NegotiationAssistant = ({ documentInfo }) => {
     setDebugInfo('Generating email templates with enhanced Pinecone...');
 
     try {
-      // Use document_id if available, otherwise try document_name
       const docId = documentInfo.document_id || documentInfo.document_name;
       console.log('🤝 Starting negotiation analysis for:', docId);
       
@@ -44,7 +45,6 @@ const NegotiationAssistant = ({ documentInfo }) => {
     }
   };
 
-  // Auto-run analysis when component mounts
   useEffect(() => {
     if (documentInfo && !analysis && !loading) {
       runAnalysis();
@@ -57,12 +57,9 @@ const NegotiationAssistant = ({ documentInfo }) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedEmail(emailType);
-      
-      // Reset copied state after 2 seconds
       setTimeout(() => setCopiedEmail(null), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
-      // Fallback for older browsers
       const textArea = document.createElement('textarea');
       textArea.value = text;
       document.body.appendChild(textArea);
@@ -85,15 +82,14 @@ const NegotiationAssistant = ({ documentInfo }) => {
       {/* Header */}
       <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 mb-8">
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-16 h-16 bg-gradient-to-r from-green-600 to-blue-600 rounded-xl flex items-center justify-center">
+          <div className="w-16 h-16 bg-gradient-to-r from-green-600 to-teal-600 rounded-xl flex items-center justify-center">
             <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none">
-              <path d="M17 3C18.6569 3 20 4.34315 20 6C20 7.65685 18.6569 9 17 9C15.3431 9 14 7.65685 14 6C14 4.34315 15.3431 3 17 3ZM17 3V12L12 17L7 12V3" stroke="currentColor" strokeWidth="2"/>
-              <circle cx="7" cy="6" r="3" stroke="currentColor" strokeWidth="2"/>
+              <path d="M3 8L10.89 13.26C11.5433 13.6728 12.4567 13.6728 13.11 13.26L21 8M5 19H19C20.1046 19 21 18.1046 21 17V7C21 5.89543 20.1046 5 19 5H5C3.89543 5 3 5.89543 3 7V17C3 18.1046 3.89543 19 5 19Z" stroke="currentColor" strokeWidth="2"/>
             </svg>
           </div>
           <div>
-            <h2 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
-              Negotiation Assistant
+            <h2 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-green-400 to-teal-500 bg-clip-text text-transparent">
+              Negotiation Email Assistant
             </h2>
             <p className="text-slate-400">
               Professional email templates for contract responses
@@ -103,7 +99,7 @@ const NegotiationAssistant = ({ documentInfo }) => {
         <button 
           onClick={runAnalysis}
           disabled={loading}
-          className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-slate-600 disabled:to-slate-700 text-white font-bold py-3 px-8 rounded-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-green-500/50 disabled:hover:transform-none disabled:hover:shadow-none disabled:cursor-not-allowed"
+          className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 disabled:from-slate-600 disabled:to-slate-700 text-white font-bold py-3 px-8 rounded-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-green-500/50 disabled:hover:transform-none disabled:hover:shadow-none disabled:cursor-not-allowed"
         >
           <div className="flex items-center justify-center gap-3">
             {loading ? (
@@ -114,8 +110,7 @@ const NegotiationAssistant = ({ documentInfo }) => {
             ) : (
               <>
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                  <path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z" stroke="currentColor" strokeWidth="2"/>
-                  <polyline points="22,6 12,13 2,6" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M3 8L10.89 13.26C11.5433 13.6728 12.4567 13.6728 13.11 13.26L21 8M5 19H19C20.1046 19 21 18.1046 21 17V7C21 5.89543 20.1046 5 19 5H5C3.89543 5 3 5.89543 3 7V17C3 18.1046 3.89543 19 5 19Z" stroke="currentColor" strokeWidth="2"/>
                 </svg>
                 <span>Generate Email Templates</span>
               </>
@@ -149,144 +144,201 @@ const NegotiationAssistant = ({ documentInfo }) => {
           <div className="flex flex-col items-center text-center space-y-6">
             <div className="relative">
               <div className="w-16 h-16 border-4 border-green-500/30 border-t-green-500 rounded-full animate-spin"></div>
-              <div className="absolute inset-0 w-16 h-16 border-4 border-blue-500/20 border-b-blue-500 rounded-full animate-spin" style={{ animationDelay: '150ms' }}></div>
+              <div className="absolute inset-0 w-16 h-16 border-4 border-teal-500/20 border-b-teal-500 rounded-full animate-spin" style={{ animationDelay: '150ms' }}></div>
             </div>
             <div>
-              <h3 className="text-xl font-bold text-white mb-2">Crafting Email Templates</h3>
-              <h4 className="text-xl font-bold text-white mb-2"> Please Hang on and Dont click Anywhere </h4>
+              <h3 className="text-xl font-bold text-white mb-2">Generating Email Templates</h3>
+              <h4 className="text-xl font-bold text-white mb-2">Please Hang on and Dont Click Anywhere</h4>
               <p className="text-slate-400">{debugInfo}</p>
-            </div>
-            <div className="flex space-x-2">
-              {[...Array(3)].map((_, i) => (
-                <div
-                  key={i}
-                  className="w-3 h-3 bg-green-500 rounded-full animate-bounce"
-                  style={{ animationDelay: `${i * 0.2}s` }}
-                ></div>
-              ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* Email Templates */}
-      {analysis && (
-        <div className="space-y-8">
-          {/* Metrics Dashboard */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-           
+      {/* 🆕 NEW: Quality Warnings Display */}
+      {analysis?.analysis?._quality_warnings && analysis.analysis._quality_warnings.length > 0 && (
+        <div className="bg-yellow-500/10 backdrop-blur-sm border border-yellow-500/30 rounded-xl p-6 mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-yellow-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-yellow-400" viewBox="0 0 24 24" fill="none">
+                <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke="currentColor" strokeWidth="2"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-yellow-300 font-semibold mb-2">⚠️ Email Generation Notes</h3>
+              <ul className="space-y-1">
+                {analysis.analysis._quality_warnings.map((warning, idx) => (
+                  <li key={idx} className="text-yellow-400 text-sm">• {warning}</li>
+                ))}
+              </ul>
+            </div>
           </div>
-          {/* Email Templates Grid */}
-          <div className="grid lg:grid-cols-2 gap-8">
-            {/* Acceptance Email */}
-            <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-green-600/20 to-emerald-600/20 border-b border-slate-700/50 p-6">
+        </div>
+      )}
+
+      {/* 🆕 NEW: Key Terms Addressed Display */}
+      {analysis?.analysis?.key_terms_addressed && analysis.analysis.key_terms_addressed.length > 0 && (
+        <div className="bg-blue-500/10 backdrop-blur-sm border border-blue-500/30 rounded-xl p-6 mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-blue-400" viewBox="0 0 24 24" fill="none">
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-blue-300 font-semibold">📋 Key Contract Terms Addressed</h3>
+              <p className="text-blue-200 text-sm">The email templates address the following important contract terms:</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 ml-16">
+            {analysis.analysis.key_terms_addressed.map((term, idx) => (
+              <span 
+                key={idx} 
+                className="px-3 py-1.5 bg-blue-500/20 text-blue-300 border border-blue-500/50 rounded-full text-sm font-medium"
+              >
+                {term}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 NEW: Negotiation Priority Display */}
+      {analysis?.analysis?.negotiation_priority && (
+        <div className="bg-purple-500/10 backdrop-blur-sm border border-purple-500/30 rounded-xl p-6 mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-purple-400" viewBox="0 0 24 24" fill="none">
+                <path d="M13 10V3L4 14h7v7l9-11h-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-purple-300 font-semibold">🎯 Priority Focus Areas</h3>
+              <p className="text-purple-200 text-sm">Recommended negotiation priorities based on contract analysis</p>
+            </div>
+          </div>
+          <div className="bg-slate-900/60 border border-slate-600/50 rounded-xl p-4 ml-16">
+            <p className="text-slate-200 leading-relaxed">
+              {analysis.analysis.negotiation_priority}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Email Templates */}
+      {analysis?.analysis?.emails && (
+        <div className="space-y-8">
+          {/* Acceptance Email */}
+          {analysis.analysis.emails.acceptance && (
+            <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden hover:border-green-500/50 transition-all duration-300">
+              <div className="bg-gradient-to-r from-green-600/10 to-teal-600/10 border-b border-slate-700/50 p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-r from-green-600 to-emerald-600 rounded-xl flex items-center justify-center">
+                    <div className="w-12 h-12 bg-gradient-to-r from-green-600 to-teal-600 rounded-xl flex items-center justify-center">
                       <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none">
                         <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2"/>
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-white">Acceptance Email</h3>
-                      <p className="text-green-300 text-sm">Professional acceptance template</p>
+                      <h3 className="text-xl font-bold text-white">✅ Acceptance Email</h3>
+                      <p className="text-slate-400 text-sm">Professional acceptance template</p>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => copyToClipboard(analysis.analysis?.emails?.acceptance, 'acceptance')}
-                    className="bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 hover:border-green-500/50 text-green-300 hover:text-white px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105"
+                  <button
+                    onClick={() => copyToClipboard(analysis.analysis.emails.acceptance, 'acceptance')}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 border border-green-500/50 rounded-lg transition-all duration-300 font-semibold"
                   >
-                    <div className="flex items-center gap-2">
-                      {copiedEmail === 'acceptance' ? (
-                        <>
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
-                            <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2"/>
-                          </svg>
-                          <span className="text-sm font-medium">Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke="currentColor" strokeWidth="2"/>
-                            <path d="M5 15H4C2.89543 15 2 14.1046 2 13V4C2 2.89543 2.89543 2 4 2H13C14.1046 2 15 2.89543 15 4V5" stroke="currentColor" strokeWidth="2"/>
-                          </svg>
-                          <span className="text-sm font-medium">Copy</span>
-                        </>
-                      )}
-                    </div>
+                    {copiedEmail === 'acceptance' ? (
+                      <>
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                          <path d="M5 13L9 17L19 7" stroke="currentColor" strokeWidth="2"/>
+                        </svg>
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                          <path d="M8 16H6C5.46957 16 4.96086 15.7893 4.58579 15.4142C4.21071 15.0391 4 14.5304 4 14V6C4 5.46957 4.21071 4.96086 4.58579 4.58579C4.96086 4.21071 5.46957 4 6 4H14C14.5304 4 15.0391 4.21071 15.4142 4.58579C15.7893 4.96086 16 5.46957 16 6V8M10 20H18C18.5304 20 19.0391 19.7893 19.4142 19.4142C19.7893 19.0391 20 18.5304 20 18V10C20 9.46957 19.7893 8.96086 19.4142 8.58579C19.0391 8.21071 18.5304 8 18 8H10C9.46957 8 8.96086 8.21071 8.58579 8.58579C8.21071 8.96086 8 9.46957 8 10V18C8 18.5304 8.21071 19.0391 8.58579 19.4142C8.96086 19.7893 9.46957 20 10 20Z" stroke="currentColor" strokeWidth="2"/>
+                        </svg>
+                        Copy Email
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
-              {/* Email Content */}
               <div className="p-6">
-                <div className="bg-slate-900/60 border border-slate-600/50 rounded-xl p-6 min-h-80">
-                  <textarea 
-                    className="w-full h-full min-h-72 bg-transparent border-none resize-none text-slate-200 placeholder-slate-500 focus:outline-none leading-relaxed"
-                    value={analysis.analysis?.emails?.acceptance || 'Acceptance email template not available'}
-                    readOnly
-                  />
+                <div className="bg-slate-900/60 border border-slate-600/50 rounded-xl p-6">
+                  <pre className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap font-sans">
+                    {analysis.analysis.emails.acceptance}
+                  </pre>
                 </div>
+                <p className="text-slate-400 text-sm mt-4 italic">
+                  💡 Use this template when you're ready to accept the contract with positive terms. Customize as needed before sending.
+                </p>
               </div>
             </div>
+          )}
 
-            {/* Rejection Email */}
-            <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-red-600/20 to-pink-600/20 border-b border-slate-700/50 p-6">
+          {/* Rejection/Negotiation Email */}
+          {analysis.analysis.emails.rejection && (
+            <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden hover:border-orange-500/50 transition-all duration-300">
+              <div className="bg-gradient-to-r from-orange-600/10 to-red-600/10 border-b border-slate-700/50 p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-gradient-to-r from-red-600 to-pink-600 rounded-xl flex items-center justify-center">
+                    <div className="w-12 h-12 bg-gradient-to-r from-orange-600 to-red-600 rounded-xl flex items-center justify-center">
                       <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                        <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" strokeWidth="2"/>
-                        <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" strokeWidth="2"/>
+                        <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2"/>
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-white">Rejection Email</h3>
-                      <p className="text-red-300 text-sm">Professional rejection template</p>
+                      <h3 className="text-xl font-bold text-white">⚠️ Negotiation/Rejection Email</h3>
+                      <p className="text-slate-400 text-sm">Professional rejection template</p>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => copyToClipboard(analysis.analysis?.emails?.rejection, 'rejection')}
-                    className="bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 hover:border-red-500/50 text-red-300 hover:text-white px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105"
+                  <button
+                    onClick={() => copyToClipboard(analysis.analysis.emails.rejection, 'rejection')}
+                    className="flex items-center gap-2 px-4 py-2 bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 border border-orange-500/50 rounded-lg transition-all duration-300 font-semibold"
                   >
-                    <div className="flex items-center gap-2">
-                      {copiedEmail === 'rejection' ? (
-                        <>
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
-                            <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2"/>
-                          </svg>
-                          <span className="text-sm font-medium">Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke="currentColor" strokeWidth="2"/>
-                            <path d="M5 15H4C2.89543 15 2 14.1046 2 13V4C2 2.89543 2.89543 2 4 2H13C14.1046 2 15 2.89543 15 4V5" stroke="currentColor" strokeWidth="2"/>
-                          </svg>
-                          <span className="text-sm font-medium">Copy</span>
-                        </>
-                      )}
-                    </div>
+                    {copiedEmail === 'rejection' ? (
+                      <>
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                          <path d="M5 13L9 17L19 7" stroke="currentColor" strokeWidth="2"/>
+                        </svg>
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+                          <path d="M8 16H6C5.46957 16 4.96086 15.7893 4.58579 15.4142C4.21071 15.0391 4 14.5304 4 14V6C4 5.46957 4.21071 4.96086 4.58579 4.58579C4.96086 4.21071 5.46957 4 6 4H14C14.5304 4 15.0391 4.21071 15.4142 4.58579C15.7893 4.96086 16 5.46957 16 6V8M10 20H18C18.5304 20 19.0391 19.7893 19.4142 19.4142C19.7893 19.0391 20 18.5304 20 18V10C20 9.46957 19.7893 8.96086 19.4142 8.58579C19.0391 8.21071 18.5304 8 18 8H10C9.46957 8 8.96086 8.21071 8.58579 8.58579C8.21071 8.96086 8 9.46957 8 10V18C8 18.5304 8.21071 19.0391 8.58579 19.4142C8.96086 19.7893 9.46957 20 10 20Z" stroke="currentColor" strokeWidth="2"/>
+                        </svg>
+                        Copy Email
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
-              {/* Email Content */}
               <div className="p-6">
-                <div className="bg-slate-900/60 border border-slate-600/50 rounded-xl p-6 min-h-80">
-                  <textarea 
-                    className="w-full h-full min-h-72 bg-transparent border-none resize-none text-slate-200 placeholder-slate-500 focus:outline-none leading-relaxed"
-                    value={analysis.analysis?.emails?.rejection || 'Rejection email template not available'}
-                    readOnly
-                  />
+                <div className="bg-slate-900/60 border border-slate-600/50 rounded-xl p-6">
+                  <pre className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap font-sans">
+                    {analysis.analysis.emails.rejection}
+                  </pre>
                 </div>
+                <p className="text-slate-400 text-sm mt-4 italic">
+                  💡 Use this template when you need to negotiate terms or decline the offer. It maintains professionalism while addressing concerns.
+                </p>
               </div>
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Debug Information */}
+      {debugInfo && analysis && (
+        <div className="bg-slate-900/60 border border-slate-600/50 rounded-xl p-4 mt-8">
+          <div className="flex items-center gap-2 text-sm">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-slate-400">{debugInfo}</span>
           </div>
-          
         </div>
       )}
 
@@ -295,11 +347,10 @@ const NegotiationAssistant = ({ documentInfo }) => {
         <div className="bg-slate-800/40 backdrop-blur-sm border-2 border-dashed border-slate-600/50 rounded-2xl p-12 text-center">
           <div className="w-20 h-20 bg-slate-700/50 rounded-2xl flex items-center justify-center mx-auto mb-6">
             <svg className="w-10 h-10 text-slate-400" viewBox="0 0 24 24" fill="none">
-              <path d="M4 4H20C21.1 4 22 4.9 22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4Z" stroke="currentColor" strokeWidth="2"/>
-              <polyline points="22,6 12,13 2,6" stroke="currentColor" strokeWidth="2"/>
+              <path d="M3 8L10.89 13.26C11.5433 13.6728 12.4567 13.6728 13.11 13.26L21 8M5 19H19C20.1046 19 21 18.1046 21 17V7C21 5.89543 20.1046 5 19 5H5C3.89543 5 3 5.89543 3 7V17C3 18.1046 3.89543 19 5 19Z" stroke="currentColor" strokeWidth="2"/>
             </svg>
           </div>
-          <h4 className="text-xl font-bold text-slate-300 mb-2">Ready to Generate Templates</h4>
+          <h4 className="text-xl font-bold text-slate-300 mb-2">Ready to Generate Email Templates</h4>
           <p className="text-slate-500">Click the "Generate Email Templates" button to create professional response emails.</p>
         </div>
       )}

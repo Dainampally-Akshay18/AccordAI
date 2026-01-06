@@ -1,8 +1,11 @@
 // DocumentSummarization.jsx - Enhanced for Comprehensive Analysis Response
+// ✨ ENHANCED: Displays missing_information and quality_warnings from backend
+// ✅ ORIGINAL DARK SLATE COLOR THEME PRESERVED 100%
+
 import React, { useState, useEffect } from 'react';
 import { runDocumentSummary } from '../services/api';
 
-// Expandable Text Component for long content
+// Expandable Text Component for long content (UNCHANGED)
 const ExpandableText = ({ text, limit = 800 }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -44,7 +47,6 @@ const DocumentSummarization = ({ documentInfo }) => {
     chunks: true,
     metadata: false
   });
-  const [showAllChunks, setShowAllChunks] = useState(false);
 
   const runAnalysis = async () => {
     if (!documentInfo?.document_id && !documentInfo?.document_name) {
@@ -93,25 +95,19 @@ const DocumentSummarization = ({ documentInfo }) => {
   };
 
   const formatSummaryText = (text) => {
-    if (!text) return [];
-    return text.split('\n\n').map(paragraph => paragraph.trim()).filter(paragraph => paragraph.length > 0);
-  };
+  if (!text) return [];
+  
+  // 🔧 FIX: Handle if text is already an array
+  if (Array.isArray(text)) {
+    return text.map(item => String(item).trim()).filter(item => item.length > 0);
+  }
+  
+  // 🔧 FIX: Ensure text is a string
+  const textString = typeof text === 'string' ? text : String(text);
+  
+  return textString.split('\n\n').map(paragraph => paragraph.trim()).filter(paragraph => paragraph.length > 0);
+};
 
-  const getSummaryMetrics = () => {
-    if (!analysis) return {};
-    
-    const summaryText = analysis.analysis?.summary || '';
-    const wordCount = summaryText.split(/\s+/).length;
-    const sentences = summaryText.split(/[.!?]+/).filter(s => s.trim().length > 0).length;
-    const chunks = analysis.relevant_chunks?.length || 0;
-    
-    return {
-      wordCount,
-      sentences,
-      chunks,
-      readingTime: Math.ceil(wordCount / 200)
-    };
-  };
 
   return (
     <div className="w-full max-w-none mx-auto">
@@ -126,7 +122,7 @@ const DocumentSummarization = ({ documentInfo }) => {
           </div>
           <div>
             <h2 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-               Document Analysis
+              Document Analysis
             </h2>
             <p className="text-slate-400">
               Complete legal document breakdown with detailed insights
@@ -185,8 +181,29 @@ const DocumentSummarization = ({ documentInfo }) => {
             </div>
             <div>
               <h3 className="text-xl font-bold text-white mb-2">Comprehensive Analysis in Progress</h3>
-              <h4 className="text-xl font-bold text-white mb-2"> Please Hang on Do not Click Anywhere </h4>
+              <h4 className="text-xl font-bold text-white mb-2">Please Hang on Do not Click Anywhere</h4>
               <p className="text-slate-400">{debugInfo}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 NEW: Quality Warnings Display (Dark Slate Theme) */}
+      {analysis?.analysis?._quality_warnings && analysis.analysis._quality_warnings.length > 0 && (
+        <div className="bg-yellow-500/10 backdrop-blur-sm border border-yellow-500/30 rounded-xl p-6 mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-yellow-500/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-yellow-400" viewBox="0 0 24 24" fill="none">
+                <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke="currentColor" strokeWidth="2"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-yellow-300 font-semibold mb-2">⚠️ Summary Quality Notes</h3>
+              <ul className="space-y-1">
+                {analysis.analysis._quality_warnings.map((warning, idx) => (
+                  <li key={idx} className="text-yellow-400 text-sm">• {warning}</li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
@@ -195,8 +212,6 @@ const DocumentSummarization = ({ documentInfo }) => {
       {/* Analysis Results */}
       {analysis && (
         <div className="space-y-8">
-          {/* Enhanced Metrics Dashboard */}
-          
           {/* Document Overview */}
           <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
             <div className="flex items-center gap-4 mb-6">
@@ -433,7 +448,41 @@ const DocumentSummarization = ({ documentInfo }) => {
               )}
             </div>
           )}
-          
+
+          {/* 🆕 NEW: Missing Information Section (Dark Slate Theme) */}
+          {analysis.analysis?.missing_information && analysis.analysis.missing_information.length > 0 && (
+            <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 bg-slate-700/50 rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-slate-400" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M12 16v-4m0-4h.01" stroke="currentColor" strokeWidth="2"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">ℹ️ Information Not Found</h3>
+                  <p className="text-slate-400">Data not present in analyzed sections</p>
+                </div>
+              </div>
+              
+              <div className="bg-slate-900/60 border border-slate-600/50 rounded-xl p-4">
+                <p className="text-slate-400 text-sm mb-3">
+                  The following information was not present in the analyzed document sections:
+                </p>
+                <ul className="space-y-2">
+                  {analysis.analysis.missing_information.map((item, index) => (
+                    <li key={index} className="flex items-start gap-2 text-slate-300 text-sm">
+                      <span className="text-slate-500 mt-1">•</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-slate-500 text-xs mt-3 italic">
+                  Note: This information may exist in other parts of the document not included in the analysis.
+                </p>
+              </div>
+            </div>
+          )}
           
           {/* Debug Information */}
           {debugInfo && (
