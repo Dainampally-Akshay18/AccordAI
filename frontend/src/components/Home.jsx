@@ -1,12 +1,13 @@
-// Home.jsx - Complete Tailwind CSS Version
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+// src/pages/Home.jsx
+import React, { useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createSession, getSessionToken, getSessionId } from '../services/api';
+import { auth } from '../utils/firebase'; 
 
 const Home = () => {
-  // All your existing state management
-  const [sessionToken, setSessionToken] = useState('');
-  const [sessionId, setSessionId] = useState('');
+  // --- USER CONFIGURATION ---
+  const userName = auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || "User";
+
+  // --- STATE MANAGEMENT ---
   const [selectedFile, setSelectedFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -19,44 +20,14 @@ const Home = () => {
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
-  // Configuration
-  const getApiBaseUrl = () => {
-    if (typeof process !== 'undefined' && process.env) {
-      return process.env.REACT_APP_API_BASE_URL || 'https://accordai-mb59.onrender.com/api/v1';
-    }
-    if (window.REACT_APP_API_BASE_URL) {
-      return window.REACT_APP_API_BASE_URL;
-    }
-    return 'https://accordai-mb59.onrender.com/api/v1';
-  };
+  // --- CONFIGURATION ---
+  // 🟢 FIX: Explicitly set the base URL to ensure no double-slash or missing protocol issues
+  const API_BASE_URL = 'http://127.0.0.1:8000/api/v1'; 
 
-  const API_BASE_URL = getApiBaseUrl();
   const SUPPORTED_FORMATS = ['.pdf', '.txt', '.doc', '.docx'];
-  const MAX_FILE_SIZE = 50 * 1024 * 1024;
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
-  // All your existing functions remain exactly the same...
-  useEffect(() => {
-    initializeSession();
-  }, []);
-
-  const initializeSession = useCallback(async () => {
-    try {
-      let token = getSessionToken();
-      let sessionIdValue = getSessionId();
-      
-      if (!token || !sessionIdValue) {
-        const sessionData = await createSession();
-        token = sessionData.access_token;
-        sessionIdValue = sessionData.session_id;
-      }
-      
-      setSessionToken(token);
-      setSessionId(sessionIdValue);
-    } catch (err) {
-      setError('Failed to initialize session. Please refresh the page.');
-    }
-  }, []);
-
+  // --- FILE HANDLING FUNCTIONS ---
   const validateFile = useCallback((file) => {
     const errors = [];
     if (!file) {
@@ -78,8 +49,8 @@ const Home = () => {
   }, []);
 
   const processDocument = useCallback(async () => {
-    if (!selectedFile || !sessionToken) {
-      setError('Please select a file and ensure session is active');
+    if (!selectedFile) {
+      setError('Please select a file to proceed');
       return;
     }
 
@@ -87,6 +58,12 @@ const Home = () => {
       setIsProcessing(true);
       setError('');
       setUploadProgress(0);
+
+      let token = null;
+      if (auth.currentUser) {
+        token = await auth.currentUser.getIdToken();
+      }
+      const authHeaders = token ? { 'Authorization': `Bearer ${token}` } : {};
 
       const isPDF = selectedFile.name.toLowerCase().endsWith('.pdf');
       
@@ -99,9 +76,13 @@ const Home = () => {
           setUploadProgress(prev => Math.min(prev + 10, 90));
         }, 200);
 
+        // 🟢 FIX: Use the clean API_BASE_URL
+        // Ensure main.py has app.include_router(..., prefix="/api/v1/documents")
         const response = await fetch(`${API_BASE_URL}/documents/upload-pdf`, {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${sessionToken}` },
+          headers: {
+            ...authHeaders, 
+          },
           body: formData
         });
 
@@ -124,7 +105,7 @@ const Home = () => {
         });
 
         setSuccess(true);
-        setProcessingStage(`✅ PDF processed successfully! Quality: ${result.extraction_info.quality_score.toFixed(1)}/10`);
+        setProcessingStage(`✅ PDF processed successfully! Quality: ${result.extraction_info?.quality_score?.toFixed(1) || 'N/A'}/10`);
         
       } else {
         setProcessingStage('📝 Processing text document...');
@@ -141,8 +122,8 @@ const Home = () => {
         const response = await fetch(`${API_BASE_URL}/documents/store_chunks`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${sessionToken}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            ...authHeaders 
           },
           body: JSON.stringify(textData)
         });
@@ -167,11 +148,12 @@ const Home = () => {
       }
 
     } catch (error) {
+      console.error(error);
       setError(`Processing failed: ${error.message}`);
     } finally {
       setIsProcessing(false);
     }
-  }, [selectedFile, sessionToken, API_BASE_URL]);
+  }, [selectedFile, API_BASE_URL]);
 
   const readFileAsText = useCallback((file) => {
     return new Promise((resolve, reject) => {
@@ -182,34 +164,28 @@ const Home = () => {
     });
   }, []);
 
+  // --- DRAG AND DROP HANDLERS ---
   const handleDragEnter = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     setIsDragging(true);
   }, []);
 
   const handleDragLeave = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     if (!e.relatedTarget || !e.currentTarget.contains(e.relatedTarget)) {
       setIsDragging(false);
     }
   }, []);
 
   const handleDragOver = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
   }, []);
 
   const handleDrop = useCallback((e) => {
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     setIsDragging(false);
-    
     const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      handleFileSelect(files[0]);
-    }
+    if (files.length > 0) handleFileSelect(files[0]);
   }, []);
 
   const handleFileSelect = useCallback((file) => {
@@ -226,9 +202,7 @@ const Home = () => {
 
   const handleFileInput = useCallback((event) => {
     const file = event.target.files?.[0];
-    if (file) {
-      handleFileSelect(file);
-    }
+    if (file) handleFileSelect(file);
   }, [handleFileSelect]);
 
   const navigateToAnalysis = useCallback(() => {
@@ -255,6 +229,7 @@ const Home = () => {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative overflow-x-hidden">
+      
       {/* Background Effects */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-10 left-5 w-96 h-96 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-full blur-3xl animate-pulse"></div>
@@ -264,10 +239,23 @@ const Home = () => {
 
       {/* Main Content */}
       <main className="relative z-10">
+        
+        {/* Navigation */}
+        <nav className="absolute top-0 w-full p-6 flex justify-between items-center z-50">
+          <div className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+            Accord AI
+          </div>
+          <div className="flex items-center gap-3 bg-slate-800/50 backdrop-blur-md px-4 py-2 rounded-full border border-slate-700">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center text-sm font-bold uppercase">
+              {userName.charAt(0)}
+            </div>
+            <span className="text-slate-200 font-medium">Welcome, {userName}</span>
+          </div>
+        </nav>
+
         {/* Hero Section */}
         <section className="pt-32 pb-16 px-4 text-center">
           <div className="max-w-6xl mx-auto">
-            {/* Logo */}
             <div className="mb-12">
               <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-2xl shadow-blue-500/50 animate-float">
                 <svg viewBox="0 0 24 24" fill="none" className="w-12 h-12 text-white">
@@ -277,7 +265,6 @@ const Home = () => {
               </div>
             </div>
             
-            {/* Title */}
             <h1 className="mb-8">
               <span className="block text-6xl sm:text-7xl md:text-8xl font-black mb-4 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent leading-tight">
                 Accord AI
@@ -287,7 +274,6 @@ const Home = () => {
               </span>
             </h1>
             
-            {/* Description */}
             <p className="text-lg sm:text-xl text-slate-300 max-w-4xl mx-auto leading-relaxed mb-12">
               Transform your legal document analysis with cutting-edge AI technology. Upload contracts, agreements, and legal documents for comprehensive{' '}
               <span className="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent font-semibold">risk assessment</span>,{' '}
@@ -295,12 +281,11 @@ const Home = () => {
               <span className="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent font-semibold">negotiation assistance</span>.
             </p>
 
-            {/* Tech Badges */}
             <div className="flex flex-wrap justify-center gap-4 mb-8">
               {[
                 { icon: '🤖', text: 'Llama 3.3 70B' },
                 { icon: '📄', text: 'Enhanced PDF' },
-                { icon: '🛡️', text: 'Secure Analysis' }
+                { icon: '🚀', text: 'Instant Analysis' }
               ].map((badge, index) => (
                 <div key={index} className="flex items-center gap-3 px-6 py-3 bg-slate-800/60 backdrop-blur-sm border border-blue-500/30 rounded-full hover:bg-blue-600/20 hover:border-blue-500/50 transition-all duration-300 hover:-translate-y-1">
                   <span className="text-2xl">{badge.icon}</span>
@@ -323,7 +308,6 @@ const Home = () => {
               </p>
             </div>
             
-            {/* Upload Zone */}
             <div 
               className={`relative w-full min-h-96 bg-slate-800/40 backdrop-blur-sm border-2 border-dashed rounded-3xl p-8 text-center cursor-pointer transition-all duration-300 mb-8 ${
                 isDragging 
@@ -365,7 +349,7 @@ const Home = () => {
                     </p>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8">
-                    {['PDF'].map((format) => (
+                    {['PDF', 'DOC', 'DOCX', 'TXT'].map((format) => (
                       <div key={format} className="flex flex-col items-center gap-2 p-4 bg-slate-700/50 rounded-lg border border-slate-600/50">
                         <span className="text-2xl">📄</span>
                         <span className="text-sm font-semibold text-slate-300">{format}</span>
@@ -473,8 +457,6 @@ const Home = () => {
                   </div>
                 </div>
 
-                
-
                 <button 
                   className="w-full max-w-md mx-auto block bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-green-500/50"
                   onClick={navigateToAnalysis}
@@ -489,62 +471,21 @@ const Home = () => {
           </div>
         </section>
 
-        {/* Features Section */}
-        <section className="py-20 px-4">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl sm:text-5xl font-bold mb-4 bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">
-                Powerful AI-Driven Analysis
-              </h2>
-              <p className="text-xl text-slate-400">
-                Comprehensive legal document intelligence at your fingertips
-              </p>
+        {/* Footer */}
+        <footer className="bg-slate-900/60 border-t border-slate-700/50 py-8">
+          <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="text-slate-400">
+              Powered by Accord AI • Enterprise-Grade Security
             </div>
-
-            <div className="grid md:grid-cols-3 gap-8">
-              {[
-                {
-                  icon: '🔍',
-                  title: 'Risk Analysis',
-                  description: 'Identify potential legal risks, liability issues, and compliance concerns in your contracts with AI precision.'
-                },
-                {
-                  icon: '📄',
-                  title: 'Smart Summarization',
-                  description: 'Get comprehensive summaries with key terms, obligations, and critical clauses highlighted automatically.'
-                },
-                {
-                  icon: '🤝',
-                  title: 'Negotiation Assistant',
-                  description: 'Generate professional email templates and negotiation strategies based on contract analysis results.'
-                }
-              ].map((feature, index) => (
-                <div key={index} className="bg-slate-800/40 backdrop-blur-sm border border-slate-600/50 p-8 rounded-2xl hover:bg-slate-700/50 hover:border-blue-500/50 transition-all duration-300 hover:-translate-y-2 group relative overflow-hidden">
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
-                  <div className="text-5xl mb-6 group-hover:scale-110 transition-transform duration-300">{feature.icon}</div>
-                  <h3 className="text-2xl font-bold text-white mb-4">{feature.title}</h3>
-                  <p className="text-slate-300 leading-relaxed">{feature.description}</p>
-                </div>
-              ))}
+            <div className="flex items-center gap-2">
+              <div className={`w-3 h-3 rounded-full bg-green-500 animate-pulse`}></div>
+              <span className="text-slate-400 text-sm">
+                System Active
+              </span>
             </div>
           </div>
-        </section>
+        </footer>
       </main>
-
-      {/* Footer */}
-      <footer className="bg-slate-900/60 border-t border-slate-700/50 py-8">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="text-slate-400">
-            Powered by Accord AI • Enterprise-Grade Security
-          </div>
-          <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${sessionToken ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
-            <span className="text-slate-400 text-sm">
-              Session {sessionToken ? 'Active' : 'Inactive'}
-            </span>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };
