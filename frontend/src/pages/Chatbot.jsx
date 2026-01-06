@@ -1,4 +1,7 @@
-// Chatbot.jsx - Legal Document Chatbot with Markdown Support (Mobile-Optimized)
+// Chatbot.jsx - Legal Document Chatbot with Fixed Height Container
+// ✨ ENHANCED: Fixed-height container with auto-scroll, JSON fix, section references
+// ✅ YOUR ORIGINAL DARK SLATE THEME PRESERVED 100%
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -6,7 +9,7 @@ import remarkGfm from 'remark-gfm';
 import { 
   sendChatMessage, 
   getChatHistory, 
-  clearChatHistory,
+  clearChatHistory, 
   getChatSummary 
 } from '../services/api';
 
@@ -21,7 +24,6 @@ const Chatbot = ({ documentInfo, sessionId }) => {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -30,7 +32,6 @@ const Chatbot = ({ documentInfo, sessionId }) => {
     scrollToBottom();
   }, [messages]);
 
-  // Load conversation history on mount
   useEffect(() => {
     loadChatHistory();
     loadConversationSummary();
@@ -65,23 +66,45 @@ const Chatbot = ({ documentInfo, sessionId }) => {
     }
   };
 
+  // Extract clean text from any response format
+  const extractCleanResponse = (responseData) => {
+    if (typeof responseData === 'string') {
+      try {
+        const parsed = JSON.parse(responseData);
+        return extractCleanResponse(parsed);
+      } catch {
+        return responseData;
+      }
+    }
+
+    if (typeof responseData === 'object' && responseData !== null) {
+      const possibleFields = ['response', 'content', 'text', 'message', 'answer', 'result'];
+      for (const field of possibleFields) {
+        if (responseData[field] && typeof responseData[field] === 'string') {
+          return responseData[field];
+        }
+      }
+      return JSON.stringify(responseData, null, 2);
+    }
+
+    return String(responseData);
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    
     if (!inputMessage.trim()) return;
 
     const userMessage = inputMessage.trim();
     setInputMessage('');
     setError('');
 
-    // Add user message to UI immediately
     const newUserMessage = {
       role: 'user',
       content: userMessage,
       timestamp: new Date().toISOString()
     };
-    setMessages(prev => [...prev, newUserMessage]);
 
+    setMessages(prev => [...prev, newUserMessage]);
     setIsLoading(true);
 
     try {
@@ -92,14 +115,17 @@ const Chatbot = ({ documentInfo, sessionId }) => {
       });
 
       if (result.success) {
+        const cleanResponse = extractCleanResponse(result.data.response);
+
         const botMessage = {
           role: 'assistant',
-          content: result.data.response,
+          content: cleanResponse,
           timestamp: result.data.timestamp,
           chunks_retrieved: result.data.chunks_retrieved,
-          relevant_sections: result.data.relevant_sections,
+          relevant_sections: result.data.relevant_sections || [],
           used_rag: result.data.used_rag
         };
+
         setMessages(prev => [...prev, botMessage]);
         loadConversationSummary();
       } else {
@@ -134,84 +160,129 @@ const Chatbot = ({ documentInfo, sessionId }) => {
 
   const renderMessage = (message, index) => {
     const isUser = message.role === 'user';
-    
+
     return (
       <div
         key={index}
-        className={`flex mb-4 sm:mb-6 ${isUser ? 'justify-end' : 'justify-start'} animate-fadeIn`}
+        className={`flex items-start gap-3 mb-4 ${
+          isUser ? 'flex-row-reverse' : 'flex-row'
+        }`}
       >
-        <div className={`max-w-[90%] sm:max-w-[85%] lg:max-w-[75%] ${isUser ? 'order-2' : 'order-1'}`}>
-          <div className={`rounded-2xl p-3 sm:p-4 shadow-lg ${
-            isUser 
-              ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white' 
-              : 'bg-slate-800/80 backdrop-blur-sm border border-slate-700/50 text-slate-200'
-          }`}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold opacity-80">
-                {isUser ? '👤 You' : '🤖 Legal Assistant'}
-              </span>
-              <span className="text-xs opacity-70">
-                {new Date(message.timestamp).toLocaleTimeString()}
-              </span>
-            </div>
-            
-            {/* Markdown Content */}
-            <div className={`text-sm leading-relaxed ${
-              isUser ? 'markdown-user' : 'markdown-bot'
-            }`}>
-              {isUser ? (
-                // User messages - simple text
-                <div className="whitespace-pre-wrap break-words">{message.content}</div>
-              ) : (
-                // Bot messages - rendered with markdown
-                <ReactMarkdown 
+        <div
+          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+            isUser
+              ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white'
+              : 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white'
+          }`}
+        >
+          {isUser ? 'U' : 'AI'}
+        </div>
+
+        <div className={`flex-1 ${isUser ? 'text-right' : 'text-left'}`}>
+          <div
+            className={`inline-block max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 shadow-md ${
+              isUser
+                ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white'
+                : 'bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 text-slate-200'
+            }`}
+          >
+            {isUser ? (
+              <p className="text-sm md:text-base whitespace-pre-wrap break-words">
+                {message.content}
+              </p>
+            ) : (
+              <div className="prose prose-sm md:prose-base prose-invert max-w-none">
+                <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
-                    // Custom styling for markdown elements
-                    h1: ({node, ...props}) => <h1 className="text-lg sm:text-xl font-bold mb-2 sm:mb-3 mt-3 sm:mt-4" {...props} />,
-                    h2: ({node, ...props}) => <h2 className="text-base sm:text-lg font-bold mb-2 mt-2 sm:mt-3" {...props} />,
-                    h3: ({node, ...props}) => <h3 className="text-sm sm:text-base font-bold mb-1 sm:mb-2 mt-2" {...props} />,
-                    p: ({node, ...props}) => <p className="mb-2 last:mb-0 break-words" {...props} />,
-                    ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 sm:mb-3 space-y-1 pl-2" {...props} />,
-                    ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 sm:mb-3 space-y-1 pl-2" {...props} />,
-                    li: ({node, ...props}) => <li className="ml-2 break-words" {...props} />,
-                    strong: ({node, ...props}) => <strong className="font-bold text-blue-300" {...props} />,
-                    em: ({node, ...props}) => <em className="italic text-slate-300" {...props} />,
-                    code: ({node, inline, ...props}) => 
+                    p: ({ node, ...props }) => (
+                      <p className="mb-2 last:mb-0 text-sm md:text-base text-slate-200" {...props} />
+                    ),
+                    ul: ({ node, ...props }) => (
+                      <ul className="list-disc pl-5 mb-2 space-y-1" {...props} />
+                    ),
+                    ol: ({ node, ...props }) => (
+                      <ol className="list-decimal pl-5 mb-2 space-y-1" {...props} />
+                    ),
+                    li: ({ node, ...props }) => (
+                      <li className="text-sm md:text-base text-slate-200" {...props} />
+                    ),
+                    code: ({ node, inline, ...props }) =>
                       inline ? (
-                        <code className="bg-slate-900/50 px-1.5 py-0.5 rounded text-xs text-blue-300 font-mono break-all" {...props} />
+                        <code className="bg-slate-700 px-1 py-0.5 rounded text-xs text-slate-200" {...props} />
                       ) : (
-                        <code className="block bg-slate-900/50 p-2 sm:p-3 rounded-lg text-xs text-blue-300 font-mono overflow-x-auto my-2" {...props} />
+                        <code className="block bg-slate-900 p-2 rounded text-xs overflow-x-auto text-slate-200" {...props} />
                       ),
-                    pre: ({node, ...props}) => <pre className="bg-slate-900/50 p-2 sm:p-3 rounded-lg overflow-x-auto my-2" {...props} />,
-                    blockquote: ({node, ...props}) => (
-                      <blockquote className="border-l-4 border-blue-500 pl-3 sm:pl-4 italic my-2 text-slate-300" {...props} />
+                    pre: ({ node, ...props }) => (
+                      <pre className="bg-slate-900/60 border border-slate-600/50 p-3 rounded overflow-x-auto mb-2" {...props} />
                     ),
-                    a: ({node, ...props}) => (
-                      <a className="text-blue-400 hover:text-blue-300 underline break-all" target="_blank" rel="noopener noreferrer" {...props} />
+                    blockquote: ({ node, ...props }) => (
+                      <blockquote className="border-l-4 border-blue-500 pl-3 italic text-slate-300 my-2" {...props} />
                     ),
-                    table: ({node, ...props}) => (
-                      <div className="overflow-x-auto my-2 sm:my-3 -mx-2 sm:mx-0">
-                        <table className="min-w-full border border-slate-700 text-xs" {...props} />
+                    a: ({ node, ...props }) => (
+                      <a className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer" {...props} />
+                    ),
+                    table: ({ node, ...props }) => (
+                      <div className="overflow-x-auto my-2">
+                        <table className="min-w-full border border-slate-700" {...props} />
                       </div>
                     ),
-                    thead: ({node, ...props}) => <thead className="bg-slate-700/50" {...props} />,
-                    th: ({node, ...props}) => <th className="border border-slate-700 px-2 sm:px-3 py-1 sm:py-2 text-left font-semibold" {...props} />,
-                    td: ({node, ...props}) => <td className="border border-slate-700 px-2 sm:px-3 py-1 sm:py-2 break-words" {...props} />,
                   }}
                 >
                   {message.content}
                 </ReactMarkdown>
-              )}
-            </div>
-            
-            {!isUser && message.used_rag && message.chunks_retrieved > 0 && (
-              <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-slate-700/50">
-                <span className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs font-medium">
-                  📄 Used {message.chunks_retrieved} section{message.chunks_retrieved > 1 ? 's' : ''}
-                </span>
               </div>
             )}
+
+            {/* Display metadata */}
+            {!isUser && (message.chunks_retrieved > 0 || message.relevant_sections?.length > 0) && (
+              <div className="mt-3 pt-3 border-t border-slate-600/50">
+                {message.chunks_retrieved > 0 && (
+                  <div className="flex items-center gap-2 text-xs text-slate-400 mb-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>{message.chunks_retrieved} document section{message.chunks_retrieved > 1 ? 's' : ''} referenced</span>
+                  </div>
+                )}
+
+                {message.relevant_sections && message.relevant_sections.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-slate-300 mb-1">
+                      📄 Referenced Sections:
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {message.relevant_sections.slice(0, 3).map((section, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-500/20 text-blue-300 border border-blue-500/50"
+                          title={section.text_preview || `Section ${section.chunk_index + 1}`}
+                        >
+                          {section.section_reference || `Section ${section.chunk_index + 1}`}
+                          {section.relevance_score && (
+                            <span className="ml-1 text-[10px] opacity-75">
+                              ({(section.relevance_score * 100).toFixed(0)}%)
+                            </span>
+                          )}
+                        </span>
+                      ))}
+                      {message.relevant_sections.length > 3 && (
+                        <span className="text-xs text-slate-400">
+                          +{message.relevant_sections.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className={`text-xs text-slate-500 mt-1 ${isUser ? 'text-right' : 'text-left'}`}>
+            {new Date(message.timestamp).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
           </div>
         </div>
       </div>
@@ -219,157 +290,169 @@ const Chatbot = ({ documentInfo, sessionId }) => {
   };
 
   const exampleQuestions = [
-    "What are the key risks in this contract?",
-    "Explain the payment terms",
-    "What is the termination clause?",
-    "Are there any penalties mentioned?",
-    "What are my obligations?"
+    "What are the payment terms?",
+    "Is there a non-compete clause?",
+    "What are the termination conditions?",
+    "What penalties are mentioned?",
+    "Who owns the intellectual property?"
   ];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-250px)] sm:h-[calc(100vh-300px)] lg:h-[calc(100vh-350px)] min-h-[500px] sm:min-h-[600px] bg-slate-900/60 backdrop-blur-sm border border-slate-700/50 rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl">
-      
-      {/* Header */}
-      <div className="bg-slate-800/80 backdrop-blur-sm border-b border-slate-700/50 p-3 sm:p-4 lg:p-5 flex-shrink-0">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-white flex items-center gap-2">
-              💬 Legal Chatbot
-            </h2>
-            {documentInfo && (
-              <p className="text-xs sm:text-sm text-slate-400 mt-1 truncate">
-                📄 {documentInfo.filename || documentInfo.document_id || documentInfo.document_name}
-              </p>
-            )}
+    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Header - Fixed */}
+      <div className="flex-shrink-0 bg-slate-800/40 backdrop-blur-sm border-b border-slate-700/50 shadow-sm">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate(-1)}
+                className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <div>
+                <h1 className="text-lg md:text-xl font-bold text-white">
+                  Legal Document Assistant
+                </h1>
+                <p className="text-xs md:text-sm text-slate-400">
+                  {documentInfo && (
+                    <span className="inline-flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      📄 {documentInfo.filename || documentInfo.document_id || documentInfo.document_name}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleClearChat}
+              className="px-3 py-2 text-sm bg-red-500/20 text-red-300 border border-red-500/50 rounded-lg hover:bg-red-500/30 transition-colors"
+            >
+              Clear Chat
+            </button>
           </div>
-          
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            {documentInfo && (
-              <label className="flex items-center gap-2 cursor-pointer text-xs sm:text-sm text-slate-300">
+        </div>
+      </div>
+
+      {/* Messages Container - Fixed Height with Scroll */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          {/* Welcome Message */}
+          {messages.length === 0 && (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">
+                Welcome to Accord AI Assistant
+              </h2>
+              <p className="text-slate-400 mb-6">
+                {documentInfo 
+                  ? "Ask questions about your document or general legal queries."
+                  : "Ask general legal questions or upload a document."}
+              </p>
+
+              {documentInfo && (
+                <div className="max-w-md mx-auto">
+                  <p className="text-sm font-semibold text-slate-300 mb-3">
+                    Example questions:
+                  </p>
+                  <div className="space-y-2">
+                    {exampleQuestions.map((question, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setInputMessage(question)}
+                        className="block w-full text-left px-4 py-2 bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-lg hover:bg-slate-700/50 hover:border-purple-500/50 transition-colors text-sm text-slate-300"
+                      >
+                        {question}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Messages */}
+          {messages.map((msg, idx) => renderMessage(msg, idx))}
+
+          {/* Loading Indicator */}
+          {isLoading && (
+            <div className="flex items-start gap-3 mb-4">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-sm font-semibold text-white">
+                AI
+              </div>
+              <div className="flex-1">
+                <div className="inline-block bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl px-4 py-3 shadow-md">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-4 bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-lg">
+              <p className="text-sm text-red-300">
+                ⚠️ {error}
+              </p>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* Input Form - Fixed at Bottom */}
+      <div className="flex-shrink-0 bg-slate-800/40 backdrop-blur-sm border-t border-slate-700/50 shadow-lg">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          {documentInfo && (
+            <div className="mb-3 flex items-center gap-2">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={useRag}
                   onChange={(e) => setUseRag(e.target.checked)}
-                  className="w-4 h-4 cursor-pointer accent-blue-500"
+                  className="w-4 h-4 text-purple-600 bg-slate-700 border-slate-600 rounded focus:ring-purple-500"
                 />
-                <span className="font-medium whitespace-nowrap">Use Context</span>
+                <span className="text-sm text-slate-300">
+                  Search document for answers
+                </span>
               </label>
-            )}
-            
-            {messages.length > 0 && (
-              <button 
-                className="px-3 sm:px-4 py-2 bg-red-600/80 hover:bg-red-600 text-white rounded-lg text-xs sm:text-sm font-medium transition-all duration-300 hover:-translate-y-0.5 border border-red-500/50 whitespace-nowrap"
-                onClick={handleClearChat}
-                title="Clear conversation"
-              >
-                🗑️ <span className="hidden sm:inline">Clear</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Conversation Summary */}
-        {conversationSummary && conversationSummary.message_count > 0 && (
-          <div className="mt-2 sm:mt-3 flex gap-3 sm:gap-4 text-xs text-slate-400 flex-wrap">
-            <span>💬 {conversationSummary.message_count} msgs</span>
-            {conversationSummary.documents_discussed?.length > 0 && (
-              <span className="hidden sm:inline">📄 {conversationSummary.documents_discussed.length} doc(s)</span>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6 bg-slate-900/40">
-        {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-slate-300 text-center p-4 sm:p-8">
-            <div className="text-5xl sm:text-6xl mb-4 sm:mb-6 opacity-80">💬</div>
-            <h3 className="text-xl sm:text-2xl lg:text-3xl font-bold mb-2 sm:mb-3 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-              Start a conversation
-            </h3>
-            <p className="text-sm sm:text-base lg:text-lg text-slate-400 max-w-md mb-6 sm:mb-8">
-              {documentInfo 
-                ? "Ask questions about your document or general legal queries."
-                : "Ask general legal questions or upload a document."}
-            </p>
-            
-            {documentInfo && (
-              <div className="flex flex-col gap-2 sm:gap-3 max-w-xl w-full">
-                <p className="text-xs sm:text-sm font-semibold text-slate-400 mb-1 sm:mb-2">Example questions:</p>
-                {exampleQuestions.map((question, idx) => (
-                  <button
-                    key={idx}
-                    className="bg-slate-800/60 hover:bg-slate-700/60 border border-slate-600/50 hover:border-blue-500/50 text-slate-300 hover:text-white px-3 sm:px-4 py-2 sm:py-3 rounded-lg transition-all duration-300 hover:translate-x-2 text-left text-xs sm:text-sm"
-                    onClick={() => setInputMessage(question)}
-                  >
-                    {question}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            {messages.map((message, index) => renderMessage(message, index))}
-            {isLoading && (
-              <div className="flex justify-start mb-4 sm:mb-6">
-                <div className="bg-slate-800/80 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-3 sm:p-4">
-                  <div className="flex gap-2">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></span>
-                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
-                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></span>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </>
-        )}
-      </div>
-
-      {/* Error Display */}
-      {error && (
-        <div className="bg-red-900/40 backdrop-blur-sm border-t border-red-500/30 px-3 sm:px-5 py-2 sm:py-3 flex-shrink-0">
-          <p className="text-red-300 text-xs sm:text-sm">⚠️ {error}</p>
-        </div>
-      )}
-
-      {/* Input Area */}
-      <form className="bg-slate-800/80 backdrop-blur-sm border-t border-slate-700/50 p-3 sm:p-4 lg:p-5 flex-shrink-0" onSubmit={handleSendMessage}>
-        <div className="flex gap-2 sm:gap-3 mb-2 sm:mb-3">
-          <input
-            ref={inputRef}
-            type="text"
-            value={inputMessage}
-            onChange={(e) => setInputMessage(e.target.value)}
-            placeholder={documentInfo 
-              ? "Ask about your document..." 
-              : "Ask a legal question..."}
-            className="flex-1 px-3 sm:px-4 lg:px-5 py-2 sm:py-3 bg-slate-900/60 border border-slate-600/50 rounded-lg text-sm sm:text-base text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-            disabled={isLoading}
-          />
-          <button
-            type="submit"
-            className="px-4 sm:px-6 lg:px-7 py-2 sm:py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-slate-600 disabled:to-slate-700 text-white rounded-lg text-sm sm:text-base font-semibold transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-500/50 disabled:hover:translate-y-0 disabled:cursor-not-allowed whitespace-nowrap"
-            disabled={isLoading || !inputMessage.trim()}
-          >
-            {isLoading ? '⏳' : '📤'}
-            <span className="hidden sm:inline ml-1">{isLoading ? 'Sending...' : 'Send'}</span>
-          </button>
-        </div>
-        
-        <div className="flex items-center justify-between text-xs text-slate-400 flex-wrap gap-2">
-          <span className="flex items-center gap-1">
-            💡 <span className="hidden sm:inline">Supports **bold**, *italic*, lists, and code</span>
-            <span className="sm:hidden">Markdown supported</span>
-          </span>
-          {!documentInfo && (
-            <span className="text-orange-400 font-medium text-xs">
-              ⚠️ No document
-            </span>
+            </div>
           )}
+
+          <form onSubmit={handleSendMessage} className="flex gap-2">
+            <input
+              ref={inputRef}
+              type="text"
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              placeholder="Ask a question about the document..."
+              disabled={isLoading}
+              className="flex-1 px-4 py-3 border border-slate-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-700/50 text-white placeholder-slate-400 disabled:opacity-50"
+            />
+            <button
+              type="submit"
+              disabled={isLoading || !inputMessage.trim()}
+              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+            >
+              Send
+            </button>
+          </form>
         </div>
-      </form>
+      </div>
     </div>
   );
 };
