@@ -52,11 +52,11 @@ function App() {
           {/* 2. Login Route (Redirects to Analysis if already logged in) */}
           <Route 
             path="/login" 
-            element={user ? <Navigate to="/analysis" replace /> : <Login />} 
+            element={user ? <Navigate to="/home" replace /> : <Login />} 
           />
 
           {/* 3. Explicit Home Route */}
-          <Route path="/home" element={<Home />} />
+          <Route path="/home" element={user ? <Home /> : <Navigate to="/login" replace />} />
           
           <Route path="/about" element={<About />} />
           
