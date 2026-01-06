@@ -22,7 +22,7 @@ const Home = () => {
 
   // --- CONFIGURATION ---
   // 🟢 FIX: Explicitly set the base URL to ensure no double-slash or missing protocol issues
-  const API_BASE_URL = 'http://127.0.0.1:8000/api/v1'; 
+  const API_BASE_URL = 'https://accordai-mb59.onrender.com/api/v1'; 
 
   const SUPPORTED_FORMATS = ['.pdf', '.txt', '.doc', '.docx'];
   const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
