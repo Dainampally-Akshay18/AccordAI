@@ -1,62 +1,61 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { 
-  getAuth, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword 
-} from 'firebase/auth';
-import { auth } from '../utils/firebase'; // Ensure this matches your firebase.js path
+  createUserWithEmailAndPassword
+} from "firebase/auth";
+import { auth } from "../utils/firebase";
 
 const Login = () => {
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // --- Handlers ---
-
+  /* ---------------- Google Login ---------------- */
   const handleGoogleLogin = async () => {
     setLoading(true);
-    setError('');
-    const provider = new GoogleAuthProvider();
+    setError("");
     try {
+      const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-      navigate('/home'); // Redirect to main app area
+      navigate("/home");
     } catch (err) {
-      console.error("Google Login Error:", err);
       setError("Failed to sign in with Google. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  /* ---------------- Email Auth ---------------- */
   const handleEmailAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
-    
+    setError("");
+
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
         await createUserWithEmailAndPassword(auth, email, password);
       }
-      navigate('/home'); // Redirect on success
+      navigate("/home");
     } catch (err) {
-      console.error("Auth Error:", err);
-      // Map Firebase error codes to user-friendly messages
-      if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found') {
+      if (
+        err.code === "auth/invalid-credential" ||
+        err.code === "auth/user-not-found"
+      ) {
         setError("Invalid email or password.");
-      } else if (err.code === 'auth/email-already-in-use') {
-        setError("Email is already registered. Please login.");
-      } else if (err.code === 'auth/weak-password') {
-        setError("Password should be at least 6 characters.");
+      } else if (err.code === "auth/email-already-in-use") {
+        setError("Email already exists. Please login.");
+      } else if (err.code === "auth/weak-password") {
+        setError("Password must be at least 6 characters.");
       } else {
-        setError("Authentication failed. Please try again.");
+        setError("Authentication failed. Try again.");
       }
     } finally {
       setLoading(false);
@@ -64,43 +63,78 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative overflow-hidden flex items-center justify-center">
-      
-      {/* Background Effects */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-10 left-5 w-96 h-96 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-20 right-5 w-80 h-80 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-full blur-3xl animate-pulse [animation-delay:1000ms]"></div>
-      </div>
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex">
 
+      {/* ================= LEFT SIDE — BRAND VIDEO ================= */}
+      <div className="hidden lg:flex w-1/2 relative overflow-hidden">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source
+            src="https://res.cloudinary.com/dunrzq7tv/video/upload/v1767736344/WhatsApp_Video_2025-12-24_at_1.22.55_AM_lawtyv.mp4"
+            type="video/mp4"
+          />
+        </video>
 
-      {/* Login Card */}
-      <div className="relative z-10 w-full max-w-md p-8 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
-        
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg mb-4">
-            <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8 text-white">
-              <path d="M12 2L4 7L12 12L20 7L12 2Z" stroke="currentColor" strokeWidth="2"/>
-              <path d="M4 12L12 17L20 12" stroke="currentColor" strokeWidth="2"/>
-            </svg>
+        {/* Overlay for readability */}
+        <div className="absolute inset-0 bg-slate-900/70 "></div>
+
+        {/* Brand Content */}
+        <div className="relative z-10 p-12 flex flex-col justify-center">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-14 h-14 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+              <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7 text-white">
+                <path d="M12 2L4 7L12 12L20 7L12 2Z" stroke="currentColor" strokeWidth="2"/>
+                <path d="M4 12L12 17L20 12" stroke="currentColor" strokeWidth="2"/>
+              </svg>
+            </div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+              Accord AI
+            </h1>
           </div>
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-            Accord AI
-          </h2>
-          <p className="text-slate-400 mt-2 text-sm">
-            {isLogin ? "Welcome back! Please sign in." : "Create an account to get started."}
+
+          <p className="text-slate-300 text-lg leading-relaxed max-w-md">
+            Enterprise-grade AI platform designed to deliver secure, scalable,
+            and intelligent solutions for modern businesses.
           </p>
         </div>
+      </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded-lg text-red-400 text-sm text-center">
-            {error}
+      {/* ================= RIGHT SIDE — LOGIN ================= */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center relative">
+
+        {/* Background Glow */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-20 right-20 w-72 h-72 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-20 left-20 w-72 h-72 bg-gradient-to-r from-purple-600/20 to-pink-600/20 rounded-full blur-3xl"></div>
+        </div>
+
+        {/* Login Card */}
+        <div className="relative z-10 w-full max-w-md p-8 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
+
+          {/* Header */}
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+              Accord AI
+            </h2>
+            <p className="text-slate-400 mt-2 text-sm">
+              {isLogin ? "Welcome back! Please sign in." : "Create your account"}
+            </p>
           </div>
-        )}
 
-        {/* Google Sign In */}
-        <button
+          {/* Error */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/40 rounded-lg text-red-400 text-sm text-center">
+              {error}
+            </div>
+          )}
+
+          {/* Google Login */}
+           <button
           onClick={handleGoogleLogin}
           disabled={loading}
           className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white hover:bg-slate-50 text-slate-900 font-semibold rounded-lg transition-all duration-200 mb-6 group"
@@ -120,61 +154,59 @@ const Login = () => {
           )}
         </button>
 
-        <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-slate-700"></div>
+          {/* Divider */}
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-700"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-slate-900 px-2 text-slate-500">
+                Or continue with email
+              </span>
+            </div>
           </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-slate-900 px-2 text-slate-500">Or continue with email</span>
-          </div>
-        </div>
 
-        {/* Email Form */}
-        <form onSubmit={handleEmailAuth} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1">Email Address</label>
+          {/* Form */}
+          <form onSubmit={handleEmailAuth} className="space-y-4">
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-slate-500 outline-none transition-all"
               placeholder="name@company.com"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white outline-none focus:ring-2 focus:ring-blue-500"
             />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1">Password</label>
+
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-slate-500 outline-none transition-all"
               placeholder="••••••••"
+              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white outline-none focus:ring-2 focus:ring-blue-500"
             />
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg font-semibold text-white shadow-lg hover:opacity-90 transition"
+            >
+              {loading ? "Processing..." : isLogin ? "Sign In" : "Create Account"}
+            </button>
+          </form>
+
+          {/* Toggle */}
+          <div className="mt-6 text-center text-sm text-slate-400">
+            {isLogin ? "Don't have an account? " : "Already have an account? "}
+            <button
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-blue-400 hover:text-blue-300 font-medium"
+            >
+              {isLogin ? "Sign up" : "Log in"}
+            </button>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-semibold rounded-lg shadow-lg shadow-blue-500/25 transition-all duration-200 transform hover:-translate-y-0.5"
-          >
-            {loading ? "Processing..." : (isLogin ? "Sign In" : "Create Account")}
-          </button>
-        </form>
-
-        {/* Toggle Mode */}
-        <div className="mt-6 text-center text-sm text-slate-400">
-          {isLogin ? "Don't have an account? " : "Already have an account? "}
-          <button 
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
-          >
-            {isLogin ? "Sign up" : "Log in"}
-          </button>
         </div>
-
       </div>
     </div>
   );
