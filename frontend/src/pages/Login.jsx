@@ -75,7 +75,7 @@ const Login = () => {
           className="absolute inset-0 w-full h-full object-cover"
         >
           <source
-            src="https://res.cloudinary.com/dunrzq7tv/video/upload/v1767736344/WhatsApp_Video_2025-12-24_at_1.22.55_AM_lawtyv.mp4"
+            src="https://res.cloudinary.com/dunrzq7tv/video/upload/v1767772882/Untitled_video_-_Made_with_Clipchamp_1_sncwy3.mp4"
             type="video/mp4"
           />
         </video>
