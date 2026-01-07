@@ -43,36 +43,43 @@ function App() {
   return (
     <Router>
       <div className="App min-h-screen bg-slate-900 text-white">
-        <Navbar user={user} /> 
         
-        <Routes>
-          {/* 1. Root now redirects to Login */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* FIXED NAVBAR: High z-index to stay on top of everything */}
+        <div className="fixed top-0 left-0 w-full z-[100] bg-slate-900 shadow-md">
+          <Navbar user={user} /> 
+        </div>
+        
+        {/* CONTENT WRAPPER: Pushes content down so it's not hidden by Navbar */}
+        <div className="pt-16">
+          <Routes>
+            {/* 1. Root now redirects to Login */}
+            <Route path="/" element={<Navigate to="/login" replace />} />
 
-          {/* 2. Login Route (Redirects to Analysis if already logged in) */}
-          <Route 
-            path="/login" 
-            element={user ? <Navigate to="/home" replace /> : <Login />} 
-          />
+            {/* 2. Login Route (Redirects to Analysis if already logged in) */}
+            <Route 
+              path="/login" 
+              element={user ? <Navigate to="/home" replace /> : <Login />} 
+            />
 
-          {/* 3. Explicit Home Route */}
-          <Route path="/home" element={user ? <Home /> : <Navigate to="/login" replace />} />
-          
-          <Route path="/about" element={<About />} />
-          
-          {/* Protected Analysis Routes */}
-          <Route 
-            path="/analysis/*" 
-            element={
-              <RequireAuth>
-                <RagAnalysis />
-              </RequireAuth>
-            } 
-          />
-          
-          {/* Fallback - Redirects to Login for unknown paths */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
+            {/* 3. Explicit Home Route */}
+            <Route path="/home" element={user ? <Home /> : <Navigate to="/login" replace />} />
+            
+            <Route path="/about" element={<About />} />
+            
+            {/* Protected Analysis Routes */}
+            <Route 
+              path="/analysis/*" 
+              element={
+                <RequireAuth>
+                  <RagAnalysis />
+                </RequireAuth>
+              } 
+            />
+            
+            {/* Fallback - Redirects to Login for unknown paths */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </div>
       </div>
     </Router>
   );

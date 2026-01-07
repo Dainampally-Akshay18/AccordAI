@@ -63,7 +63,7 @@ async def _retrieve_multi_query_chunks(
     document_id: str, 
     primary_query: str, 
     secondary_queries: List[str], 
-    top_k: int = 20
+    top_k: int = 3
 ) -> List[Dict[str, Any]]:
     """
     🆕 Multi-query retrieval strategy for comprehensive coverage
@@ -96,7 +96,7 @@ async def _retrieve_multi_query_chunks(
             secondary_chunks = await vector_service.retrieve_relevant_chunks(
                 query=secondary_query,
                 document_id=document_id,
-                top_k=max(5, top_k // 3)  # Fewer chunks per secondary query
+                top_k=max(1, top_k // 2)  # Fewer chunks per secondary query
             )
             for chunk in secondary_chunks:
                 chunk_id = chunk.get('id')

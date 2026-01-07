@@ -1,4 +1,4 @@
-// RagAnalysis.jsx - Mobile-Optimized with Better Spacing
+// RagAnalysis.jsx - Fixed Sidebar and Navbar Layout
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { getSessionId } from '../services/api';
@@ -164,19 +164,23 @@ const RagAnalysis = () => {
   ];
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white flex pt-16">
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white flex">
+      {/* Note: 'pt-16' removed from here because App.jsx handles the global padding */}
       
       {/* Overlay for mobile sidebar */}
       {sidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
+      {/* FIXED SIDEBAR */}
+      {/* top-16 ensures it starts below the Navbar */}
+      {/* bottom-0 ensures it stretches to full height */}
+      {/* z-40 is lower than Navbar's z-100 */}
       <aside 
-        className={`fixed lg:static top-16 bottom-0 left-0 z-50 w-80 lg:w-72 bg-slate-900/98 backdrop-blur-xl border-r border-slate-700/50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-16 bottom-0 left-0 z-40 w-80 lg:w-72 bg-slate-900/98 backdrop-blur-xl border-r border-slate-700/50 transform transition-transform duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
@@ -265,8 +269,9 @@ const RagAnalysis = () => {
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* Main Content Area - Shifted Right */}
+      {/* lg:ml-72 ensures content starts AFTER the sidebar on desktop */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden lg:ml-72">
         
         {/* Top Header Bar - Simplified for Mobile */}
         <header className="bg-slate-800/60 backdrop-blur-xl border-b border-slate-700/50 flex-shrink-0">
