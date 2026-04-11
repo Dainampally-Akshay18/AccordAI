@@ -40,23 +40,7 @@ const AboutDeveloper = () => {
             </p>
           </div>
 
-          {/* Mission */}
-          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6 shadow-md">
-            <h3 className="text-xl font-bold mb-2 flex items-center gap-2">🎯 Mission</h3>
-            <p className="text-slate-400 leading-relaxed">
-              To design and implement intelligent, scalable applications by combining
-              strong software engineering practices with applied AI solutions.
-            </p>
-          </div>
-
-          {/* Vision */}
-          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6 shadow-md">
-            <h3 className="text-xl font-bold mb-2 flex items-center gap-2">🔭 Vision</h3>
-            <p className="text-slate-400 leading-relaxed">
-              To become a technology innovator delivering impactful, ethical,
-              and production-ready AI-driven systems.
-            </p>
-          </div>
+          
 
           {/* Microsoft Intern Experience */}
           <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6 shadow-md">
@@ -123,24 +107,7 @@ const AboutDeveloper = () => {
             </p>
           </div>
 
-          {/* Mission */}
-          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6 shadow-md">
-            <h3 className="text-xl font-bold mb-2 flex items-center gap-2">🎯 Mission</h3>
-            <p className="text-slate-400 leading-relaxed">
-              To build reliable, maintainable, and user-focused software systems
-              through strong collaboration and engineering discipline.
-            </p>
-          </div>
-
-          {/* Vision */}
-          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6 shadow-md">
-            <h3 className="text-xl font-bold mb-2 flex items-center gap-2">🔭 Vision</h3>
-            <p className="text-slate-400 leading-relaxed">
-              To grow as a full-stack engineer capable of delivering scalable solutions
-              that meet real-world business and technical requirements.
-            </p>
-          </div>
-
+          
           {/* Deloitte Intern Experience */}
           <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6 shadow-md">
             <h3 className="text-xl font-bold mb-2 flex items-center gap-2">
