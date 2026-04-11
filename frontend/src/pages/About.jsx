@@ -187,7 +187,7 @@ const AboutDeveloper = () => {
         <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6 shadow-xl text-center space-y-6">
           <div className="w-44 h-44 mx-auto rounded-2xl overflow-hidden border-2 border-slate-700 mb-4">
             <img
-              src={sharedImageLink}
+              src={"https://res.cloudinary.com/dunrzq7tv/image/upload/v1775919878/VARSHITH_djjuas.jpg"}
               alt="Varshith Reddy"
               className="w-full h-full object-cover"
             />
@@ -219,7 +219,7 @@ const AboutDeveloper = () => {
         <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6 shadow-xl text-center space-y-6">
           <div className="w-44 h-44 mx-auto rounded-2xl overflow-hidden border-2 border-slate-700 mb-4">
             <img
-              src={sharedImageLink}
+              src={"https://res.cloudinary.com/dunrzq7tv/image/upload/v1775919879/rohith_szve4v.jpg"}
               alt="Rohith Kumar"
               className="w-full h-full object-cover"
             />
@@ -251,7 +251,7 @@ const AboutDeveloper = () => {
         <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-6 shadow-xl text-center space-y-6">
           <div className="w-44 h-44 mx-auto rounded-2xl overflow-hidden border-2 border-slate-700 mb-4">
             <img
-              src={sharedImageLink}
+              src={"https://res.cloudinary.com/dunrzq7tv/image/upload/v1775919879/likith_qlhzbb.jpg"}
               alt="Hebbare Likith"
               className="w-full h-full object-cover"
             />
