@@ -105,7 +105,7 @@ const AboutDeveloper = () => {
             {/* Badge */}
             <div className="text-center mb-4">
               <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-emerald-600/20 to-teal-600/20 border border-emerald-600/30 text-emerald-300 text-sm font-semibold backdrop-blur-sm">
-                Software Engineer LTI MindTree
+                🚀 Software Engineer LTI MindTree
               </span>
             </div>
 
@@ -167,7 +167,7 @@ const AboutDeveloper = () => {
             {/* Badge */}
             <div className="text-center mb-4">
               <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-orange-600/20 to-amber-600/20 border border-orange-600/30 text-orange-300 text-sm font-semibold backdrop-blur-sm">
-                Software Engineer Intern Nxzen
+                🚀 Software Engineer Intern Nxzen
               </span>
             </div>
 
@@ -229,7 +229,7 @@ const AboutDeveloper = () => {
             {/* Badge */}
             <div className="text-center mb-4">
               <span className="inline-block px-4 py-1 rounded-full bg-gradient-to-r from-pink-600/20 to-rose-600/20 border border-pink-600/30 text-pink-300 text-sm font-semibold backdrop-blur-sm">
-                Software Engineer Capgemini
+                🚀 Software Engineer Capgemini
               </span>
             </div>
 
